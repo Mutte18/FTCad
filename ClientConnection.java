@@ -4,22 +4,26 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Random;
+import java.util.UUID;
 
 public class ClientConnection implements Runnable {
-	// Detta kan se annorlunda ut senare, KOM IH�G! pga BS
+	// Detta kan se annorlunda ut senare, KOM IH�G! pga BS
 	private Server mServer;
 	private Socket mClientSocket;
 
 	private ObjectOutputStream mOut;
 	private ObjectInputStream mIn;
 	
-	private volatile int mConTries;
+	private volatile int mConTries = 0;
 	private volatile boolean mDisconnected;
+	private UUID mUUID;
 
 	public ClientConnection(Socket clientSocket, Server server) {
 		mServer 	  = server;
 		mClientSocket = clientSocket;
 		mDisconnected = false;
+		mUUID = UUID.randomUUID();
 		
 		try {
 			mOut = new ObjectOutputStream(mClientSocket.getOutputStream()); //Skapar ny TCP-con. som kopplar den till socketen
@@ -61,7 +65,7 @@ public class ClientConnection implements Runnable {
 				
 			}catch (IOException | ClassNotFoundException e){
 				mConTries++;
-                System.err.println("Error reading GObject: " + e.getMessage());
+                //System.err.println("Error reading GObject: " + e.getMessage()); MÅSTE VI HA DEN HÄR OUTPUTEN HÄR?!
 			}
 			if (mConTries > 10){ 
 				isConnected = false; 
@@ -72,5 +76,9 @@ public class ClientConnection implements Runnable {
 		} catch (IOException e) {
 			System.err.println("Could not close ClientSocket: " + e.getMessage());
 		}
+	}
+
+	public UUID getUUID(){
+		return mUUID;
 	}
 }

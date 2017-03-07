@@ -13,6 +13,9 @@ public class FE {
 	private String 		mPrimaryAddress; //vill lagra den f�rsta serverns port och adress
 	private int 		mPrimaryPort;	 // dvs prim�ren
 
+	private String mHostname;
+	private int mPortnumber;
+
 	private ObjectOutputStream mOut = null;
 	private boolean noPrimary;
 
@@ -49,15 +52,13 @@ public class FE {
 
 				feClientConnection = new FEClientConnection(mClientSocket, this);
 				if(noPrimary){
-					mPrimaryAddress = feClientConnection.getHostName();
-					mPrimaryPort = feClientConnection.getPortNumber();
-					System.out.println(mPrimaryAddress);
-					System.out.println(mPrimaryPort);
-					System.out.println("satte en till primary");
-					noPrimary = false;
-				}
+					/*mPrimaryAddress = feClientConnection.getHostName();
+					mPrimaryPort = feClientConnection.getPortNumber();*/
 
-				System.out.println("Kommer bara hit om vi skickar nåt");
+					mPrimaryAddress = mHostname;		//This will only be done once, assigns the primary server values
+					mPrimaryPort = mPortnumber;
+
+				}
 			} catch (IOException e) {
 				System.err.println("Error while accepting packet: " + e.getMessage());
 			}	//H���������������������������������R!
@@ -66,8 +67,25 @@ public class FE {
 			
 			
 
-			feClientConnection.sendRespondMsg();
+			feClientConnection.sendRespondMsg(mPrimaryAddress, mPrimaryPort, noPrimary);
+			noPrimary = false;
 		} while (true);
+	}
+
+	public void setNoPrimary(boolean value){
+		noPrimary = value;
+	}
+
+	public synchronized void handleMessages(Object object){
+		if(object instanceof ConnectionMsg){					//Handles the connection message
+			mHostname = ((ConnectionMsg) object).getHostname();
+			mPortnumber = ((ConnectionMsg) object).getPort();
+		}
+		else if(object instanceof CrashMessage){		//If the primary server has crashed we reset the bool to true
+			System.out.println("Crashmessage received");
+			setNoPrimary(true);
+		}
+
 	}
 	
 	// Veta vilken prim�rSer

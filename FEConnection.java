@@ -67,6 +67,17 @@ public class FEConnection {
 		}
 	}
 
+	public void sendCrashMsg(){
+		try {
+
+			mOut.writeObject(new CrashMessage());
+			System.out.println(mOut);
+			System.out.println("Send the crash message");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
     public boolean awaitPrimaryMessage(){
 		PrimaryMsg primaryMsg = null;
 		try {
@@ -78,7 +89,6 @@ public class FEConnection {
 		}
 		mPrimaryAddress = primaryMsg.getPrimaryAddress();
 		mPrimaryPort = primaryMsg.getPrimaryPort();
-		System.out.println("Primaryport" + mPrimaryPort);
 		isPrimary = primaryMsg.getPrimary();
 
 		/*System.out.println(mPrimaryAddress);

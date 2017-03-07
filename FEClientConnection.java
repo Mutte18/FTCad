@@ -8,20 +8,17 @@ import java.util.ArrayList;
 
 public class FEClientConnection{
 	// Detta kan se annorlunda ut senare, KOM IH�G! pga BS
-	private FE 		mFE;
 	private Socket  mClientSocket;
-	private InetAddress mPrimaryAddress;
-	private int		mPrimaryPort;
-
 	private ObjectOutputStream 	mOut;
 	private ObjectInputStream 	mIn;
+	private FE mFE;
 
 	private String mHostname;
 	private int mPortnumber;
 
 	public FEClientConnection(Socket clientSocket, FE fe) {
 		mClientSocket 	= clientSocket;
-		mFE				= fe;		
+		mFE = fe;
 
 
 		ConnectionMsg connectionMsg = null;
@@ -29,10 +26,11 @@ public class FEClientConnection{
 		try {
 			mOut = new ObjectOutputStream(mClientSocket.getOutputStream()); //Skapar ny TCP-con. som kopplar den till socketen
 			mIn  = new ObjectInputStream(mClientSocket.getInputStream());
-			connectionMsg = (ConnectionMsg) mIn.readObject();
-			mHostname = connectionMsg.getHostname();
-			mPortnumber = connectionMsg.getPort();
-			System.out.println(mPortnumber + "Portnumber??");
+			Object o = mIn.readObject();
+			System.out.println(mIn);
+			System.out.println(o);
+			mFE.handleMessages(o);
+			//connectionMsg = (ConnectionMsg) mIn.readObject();
 
 		} catch (IOException e) { System.err.println("Error with Object Stream: " + e.getMessage()); } catch (ClassNotFoundException e) {
 			e.printStackTrace();
@@ -41,9 +39,9 @@ public class FEClientConnection{
 
 
 	
-	public synchronized void sendRespondMsg(){
+	public synchronized void sendRespondMsg(String primaryaddress, int primaryport, boolean isPrimary){
 		try {
-			mOut.writeObject(new PrimaryMsg(true, mHostname, mPortnumber));
+			mOut.writeObject(new PrimaryMsg(isPrimary, primaryaddress, primaryport));
 		} catch (IOException e) { System.err.println("Could not write GObject: " + e.getMessage()); }
 	}
 

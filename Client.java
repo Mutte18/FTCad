@@ -9,6 +9,10 @@ public class Client {
 	private String mPrimaryAddress;
 	private int mPrimaryPort;
 
+	private String mFEhostName;
+	private int mFEport;
+	private int mServerPort;
+
 	
 	public static void main(String[] args) {
 		if (args.length < 3) {
@@ -24,10 +28,16 @@ public class Client {
 		}
 	}
 
-	private Client() {}
+	private Client() {
+
+	}
 	
     private void connectToFE(String hostName, int FEport, int serverPort) {
-        mFEConnection = new FEConnection(hostName, FEport, serverPort); //Create a new FEconnection
+		mFEhostName = hostName;
+		mFEport = FEport;
+		mServerPort = serverPort;
+
+        mFEConnection = new FEConnection(mFEhostName, mFEport, mServerPort); //Create a new FEconnection
         
         if (mFEConnection.handshake()) {
 			mPrimaryAddress = mFEConnection.getPrimaryAddress();
@@ -39,6 +49,8 @@ public class Client {
         	mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
         	
         	if(mServerConnection.handshake()){
+				Thread serverConThread = new Thread(mServerConnection);
+				serverConThread.start();
         		listenForServerMessages();
         	}
         } else { System.err.println("Unable to connect to server"); }
@@ -46,9 +58,29 @@ public class Client {
     
     private void listenForServerMessages(){
 		mGui = new GUI(750, 600, mServerConnection);
-        mGui.addToListener();		
+		mGui.addToListener();
 		do{
 			mGui.updateObjectList(mServerConnection.receivePaintings());
+			if(mServerConnection.getDisconnect()){
+                connectToFE(mFEhostName, mFEport, mServerPort);
+                break;
+            }
 		} while(true);
-    }    
+    }
+
+
 }
+/*class ThreadRemoval implements Runnable {
+	@Override
+	//Denna metod tar bort bortkopplade klienter var femte sekund
+	public void run() {
+		while (true) {
+			try {
+				Thread.sleep(5000);
+				tryToConnect();
+			} catch (InterruptedException e) {
+				System.err.println("Failed to sleep thread: " + e.getMessage());
+			}
+		}
+	}
+}*/

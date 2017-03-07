@@ -7,7 +7,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 
-public class ServerConnection {
+public class ServerConnection implements Runnable {
 	private ArrayList<GObject> mGObjects;
 	private Socket mClientSocket = null;
 	private String mServerName = null;
@@ -17,6 +17,8 @@ public class ServerConnection {
 
 	private volatile boolean mIsConnected;
 	private int mServerPort = -1;
+	private int mConTries;
+	private boolean mDisconnected;
 
 	public ServerConnection(String serverName, int serverPort) {
 		mServerName = serverName;
@@ -51,7 +53,7 @@ public class ServerConnection {
 			try {
 				mGObjects = (ArrayList<GObject>) mIn.readObject();
 			} catch (ClassNotFoundException | IOException e) {
-				System.err.println("Error reading Vector using ObjectInputStream: " + e.getMessage());
+				//System.err.println("Error reading Vector using ObjectInputStream: " + e.getMessage());
 			}
 		}
 		return mGObjects;
@@ -61,10 +63,53 @@ public class ServerConnection {
 		// Denna tar emot klientens ritning som skickas till servern
 		try {
 			mOut.writeObject(object);
-			
+
 		} catch (IOException e) {
 			System.err.println("Error creating GObject with ObjectOutputStream: " + e.getMessage());
 		}
 	}
-	
+
+	public synchronized int getConTries(){
+		return mConTries;
+	}
+
+	public boolean getDisconnect(){
+		return mDisconnected;
+	}
+
+	public void setDisconnect(boolean value){
+		mDisconnected = value;
+	}
+
+	@Override
+	public void run() {
+		boolean isConnected = true;
+
+		while (isConnected && !mDisconnected) {
+			try {
+				PingMessage pingMessage = new PingMessage();
+				mOut.writeObject(pingMessage);
+
+			} catch (IOException e) {
+				mConTries++;
+				//System.err.println("Error reading GObject: " + e.getMessage()); MÅSTE VI HA DEN HÄR OUTPUTEN HÄR?!
+			}
+			if (mConTries > 10) {
+				isConnected = false;
+			}
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			mClientSocket.close();
+			setDisconnect(true);
+
+			System.out.println("DENNA SKA NU RECONNECTA");
+		} catch (IOException e) {
+			System.err.println("Could not close ClientSocket: " + e.getMessage());
+		}
+	}
 }

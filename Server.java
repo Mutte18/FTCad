@@ -8,13 +8,15 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.UUID;
 import java.util.Vector;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Server {
 	
 	private volatile ArrayList<GObject> mGObjects = new ArrayList<>(); 	//Denna lagrar ritade objekt
 	private volatile Vector<ClientConnection> mConnectedClients = new Vector<>(); //Lagrar uppkopplade klienter
-	//private ConcurrentHashMap<String, Thread> mClientThreads = new ConcurrentHashMap<String, Thread>();
+	private ConcurrentHashMap<UUID, Thread> mClientThreads = new ConcurrentHashMap<UUID, Thread>();
 	private FEConnection mFEConnection = null; 
 
 	private ServerSocket mServerSocket;
@@ -24,11 +26,13 @@ public class Server {
 	private ObjectInputStream mIn = null;
 	
 	private String mPrimaryAddress;
+    private String mFEHostName;
+	private int mPrimaryPort;
 	private int mFEport;
 	private int mServerport;
 	private boolean isPrimary;
 	static Server instance;
-	static int kek;
+	private ServerConnection mServerConnection;
 
 	public static void main(String[] args) {
 		if (args.length < 3) {
@@ -38,9 +42,6 @@ public class Server {
 		try {			
 			instance = new Server(Integer.parseInt(args[2]));
 			instance.connectToFE(args[0], Integer.parseInt(args[1]));
-			kek = Integer.parseInt(args[2]);
-
-
 			//String hostName, int FEport, int serverPort
 
 
@@ -81,6 +82,8 @@ public class Server {
 				//Vad ska h�nda h�r?
 				Thread clientThread = new Thread(clientConnection);
 				clientThread.start();
+				mClientThreads.put(clientConnection.getUUID(), clientThread);
+
 			}
 		} while(true);
 	}
@@ -95,8 +98,10 @@ public class Server {
 			mGObjects.remove(mGObjects.size()-1);
 			System.out.println("Removed a thing");
 		}
-		broadcast();	
-		System.out.println(mGObjects.size());
+		else if(object instanceof PingMessage){
+			System.out.println("FICK ETT PINGMEDDELANDE!");
+		}
+		broadcast();
 	}
 	
 	public void broadcast(){
@@ -106,21 +111,50 @@ public class Server {
 	}
 
 	private void connectToFE(String hostName, int FEport) {
+        mFEHostName = hostName;
+        mFEport = FEport;
 		//N�r en ny server skapas ska den g� igenom FE
-		mFEConnection = new FEConnection(hostName, FEport, mServerport); //Create a new FEconnection
+		mFEConnection = new FEConnection(mFEHostName, FEport, mServerport); //Create a new FEconnection
         if(mFEConnection.handshake()){
-			mPrimaryAddress = mFEConnection.getPrimaryAddress();
-			System.out.println(" This is my address " + mPrimaryAddress);
-			System.out.println("This is my port" + mServerport);
-			if(mFEConnection.getPrimary()){
-				System.out.println("I am supposed to be primray!");
-				instance.listenForClientMessages();
+            System.out.println("Detta gick igenom FE");
+            mPrimaryAddress = mFEConnection.getPrimaryAddress();
+			mPrimaryPort = mFEConnection.getPrimaryPort();
+            System.out.println(mFEConnection.getPrimary());
 
+			if(mFEConnection.getPrimary()){
+				instance.listenForClientMessages();
 			}
+			else{
+				mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
+				if(mServerConnection.handshake()){
+					Thread serverConThread = new Thread(mServerConnection);
+					serverConThread.start();
+					listenForServerMessages();
+
+				}
+			}
+
 
 		}
 	}
-	
+
+	private void listenForServerMessages(){
+
+		do{
+			mGObjects = mServerConnection.receivePaintings();
+            if(mServerConnection.getDisconnect()){
+                mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport);
+                if(mFEConnection.handshake()){
+                    mFEConnection.sendCrashMsg();
+                    connectToFE(mFEHostName, mFEport);
+                }
+
+
+                break;
+            }
+		} while(true);
+	}
+
 	class ThreadRemoval implements Runnable {
 		@Override
 		//Denna metod tar bort bortkopplade klienter var femte sekund
@@ -128,14 +162,32 @@ public class Server {
 			while (true) {
 				try {
 					Thread.sleep(5000);
-					//clientRemoval(); Denna metod beh�ver uppdateras
+					removeDisconnected();
 				} catch (InterruptedException e) {
 					System.err.println("Failed to sleep thread: " + e.getMessage());
 				}
 			}
 		}
 	}
-	
+
+	private void removeDisconnected() {
+		for (ClientConnection mConnectedClient : mConnectedClients) {
+			System.out.println("Detta körs");
+			UUID removedUser = mConnectedClient.getUUID();
+			boolean wishesToLeave = mConnectedClient.getDisconnect();
+			if (mConnectedClient.getConTries() > 10 || wishesToLeave) {
+				System.out.printf("Client %s has crashed \n", removedUser);
+				mConnectedClients.remove(mConnectedClient);
+				try {
+					mClientThreads.get(removedUser).join();
+					mClientThreads.remove(removedUser);
+				} catch (InterruptedException e) {
+					//e.printStackTrace();
+				}
+				break;
+			}
+		}
+	}
 	//TODO
 	//Beh�ver skapar replikationer, alternativt tv�(??)
 	//Beh�ver best�mma ny prim�r
