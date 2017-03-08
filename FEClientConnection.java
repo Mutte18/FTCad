@@ -9,7 +9,6 @@ public class FEClientConnection implements Runnable {
     private Socket mClientSocket;
     private ObjectOutputStream mOut;
     private ObjectInputStream mIn;
-    private FE mFE;
 
     private String mHostname;
     private int mPortNumber;
@@ -18,9 +17,8 @@ public class FEClientConnection implements Runnable {
     private boolean isServer;
     private boolean isPrimary;
 
-    public FEClientConnection(Socket clientSocket, FE fe) {
+    public FEClientConnection(Socket clientSocket) {
         mClientSocket = clientSocket;
-        mFE = fe;
 
         try {
             mOut = new ObjectOutputStream(mClientSocket.getOutputStream());

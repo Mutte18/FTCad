@@ -50,7 +50,7 @@ public class FE {
 
             try {
                 mClientSocket = mFESocket.accept();
-                feClientConnection = new FEClientConnection(mClientSocket, this);
+                feClientConnection = new FEClientConnection(mClientSocket);
                 if (addServer(feClientConnection)) {
                     Thread feClientThread = new Thread(feClientConnection);
                     feClientThread.start();
@@ -60,8 +60,6 @@ public class FE {
                         mPrimaryAddress = feClientConnection.getHostName();
                         mPrimaryPort = feClientConnection.getPortNumber();
                         feClientConnection.setPrimary(true);
-                        System.out.println(mPrimaryAddress);
-                        System.out.println(mPrimaryPort);
                     }
                 }
             } catch (IOException e) {
