@@ -3,7 +3,6 @@ package DCAD;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 
@@ -40,7 +39,7 @@ public class ServerConnection implements Runnable {
 			e.printStackTrace();
 		}
 		try {
-			mOut.writeObject(new ConnectionMsg("le", mServerPort));
+			mOut.writeObject(new ClientConnectionMessage());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

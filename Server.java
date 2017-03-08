@@ -3,6 +3,7 @@ package DCAD;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,11 +13,10 @@ import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Server {
+public class Server implements Serializable{
 	
 	private volatile ArrayList<GObject> mGObjects = new ArrayList<>(); 	//Denna lagrar ritade objekt
 	private volatile Vector<ClientConnection> mConnectedClients = new Vector<>(); //Lagrar uppkopplade klienter
-	private ConcurrentHashMap<UUID, Thread> mClientThreads = new ConcurrentHashMap<UUID, Thread>();
 	private FEConnection mFEConnection = null; 
 
 	private ServerSocket mServerSocket;
@@ -82,7 +82,6 @@ public class Server {
 				//Vad ska h�nda h�r?
 				Thread clientThread = new Thread(clientConnection);
 				clientThread.start();
-				mClientThreads.put(clientConnection.getUUID(), clientThread);
 
 			}
 		} while(true);
@@ -115,7 +114,8 @@ public class Server {
         mFEport = FEport;
 		//N�r en ny server skapas ska den g� igenom FE
 		mFEConnection = new FEConnection(mFEHostName, FEport, mServerport); //Create a new FEconnection
-        if(mFEConnection.handshake()){
+		System.out.println(mFEConnection);
+		if(mFEConnection.serverHandshake(this)){
             System.out.println("Detta gick igenom FE");
             mPrimaryAddress = mFEConnection.getPrimaryAddress();
 			mPrimaryPort = mFEConnection.getPrimaryPort();
@@ -140,18 +140,15 @@ public class Server {
 
 	private void listenForServerMessages(){
 
-		do{
+		do {
 			mGObjects = mServerConnection.receivePaintings();
-            if(mServerConnection.getDisconnect()){
-                mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport);
-                if(mFEConnection.handshake()){
-                    mFEConnection.sendCrashMsg();
-                    connectToFE(mFEHostName, mFEport);
-                }
+			if (mServerConnection.getDisconnect()) {
+				System.out.println(mFEConnection);
+				mFEConnection.sendCrashMsg();
+				connectToFE(mFEHostName, mFEport);
+				break;
+			}
 
-
-                break;
-            }
 		} while(true);
 	}
 
@@ -173,17 +170,10 @@ public class Server {
 	private void removeDisconnected() {
 		for (ClientConnection mConnectedClient : mConnectedClients) {
 			System.out.println("Detta körs");
-			UUID removedUser = mConnectedClient.getUUID();
 			boolean wishesToLeave = mConnectedClient.getDisconnect();
 			if (mConnectedClient.getConTries() > 10 || wishesToLeave) {
-				System.out.printf("Client %s has crashed \n", removedUser);
+				System.out.printf("A client has crashed");
 				mConnectedClients.remove(mConnectedClient);
-				try {
-					mClientThreads.get(removedUser).join();
-					mClientThreads.remove(removedUser);
-				} catch (InterruptedException e) {
-					//e.printStackTrace();
-				}
 				break;
 			}
 		}

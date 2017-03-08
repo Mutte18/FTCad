@@ -17,13 +17,11 @@ public class ClientConnection implements Runnable {
 	
 	private volatile int mConTries = 0;
 	private volatile boolean mDisconnected;
-	private UUID mUUID;
 
 	public ClientConnection(Socket clientSocket, Server server) {
 		mServer 	  = server;
 		mClientSocket = clientSocket;
 		mDisconnected = false;
-		mUUID = UUID.randomUUID();
 		
 		try {
 			mOut = new ObjectOutputStream(mClientSocket.getOutputStream()); //Skapar ny TCP-con. som kopplar den till socketen
@@ -76,9 +74,5 @@ public class ClientConnection implements Runnable {
 		} catch (IOException e) {
 			System.err.println("Could not close ClientSocket: " + e.getMessage());
 		}
-	}
-
-	public UUID getUUID(){
-		return mUUID;
 	}
 }
