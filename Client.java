@@ -3,25 +3,20 @@ package DCAD;
 import java.net.InetAddress;
 
 public class Client {
-	static private GUI 		 mGui;
-	private FEConnection 	 mFEConnection = null; // Kopplingen till servern
 	private ServerConnection mServerConnection;
-	private String mPrimaryAddress;
-	private int mPrimaryPort;
 
 	private String mFEhostName;
 	private int mFEport;
-	private int mServerPort;
 
 	
 	public static void main(String[] args) {
-		if (args.length < 3) {
+		if (args.length < 2) {
 			System.err.println("Usage: java Client hostname FEportnumber username serverportnumber");
 			System.exit(-1);
 		}
 		try {
 			Client instance = new Client();
-			instance.connectToFE(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]));
+			instance.connectToFE(args[0], Integer.parseInt(args[1]));
 		} catch (NumberFormatException e) {
 			System.err.println("Error: port number must be an integer.");
 			System.exit(-1);
@@ -29,40 +24,35 @@ public class Client {
 	}
 
 	private Client() {
-
 	}
 	
-    private void connectToFE(String hostName, int FEport, int serverPort) {
+    private void connectToFE(String hostName, int FEport) {
 		mFEhostName = hostName;
 		mFEport = FEport;
-		mServerPort = serverPort;
 
-        mFEConnection = new FEConnection(mFEhostName, mFEport, mServerPort); //Create a new FEconnection
+		FEConnection mFEConnection = new FEConnection(mFEhostName, mFEport, 0);	//Client doesn't need to send a serverPort
         
-        if (mFEConnection.handshake()) {
-			mPrimaryAddress = mFEConnection.getPrimaryAddress();
-			mPrimaryPort = mFEConnection.getPrimaryPort();
-			System.out.println(mPrimaryAddress + "Ska vara serverns?");
-			System.out.println(mPrimaryPort + "Ska vara serverns?");
+        if (mFEConnection.clientHandshake()) {
+			String mPrimaryAddress = mFEConnection.getPrimaryAddress();
+			int mPrimaryPort = mFEConnection.getPrimaryPort();
 
-        	//Beh�ver kopplas till servern via ServerConnection
         	mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
         	
         	if(mServerConnection.handshake()){
-				Thread serverConThread = new Thread(mServerConnection);
+				Thread serverConThread = new Thread(mServerConnection);		//Starts a thread so that the client can ping the server
 				serverConThread.start();
         		listenForServerMessages();
         	}
         } else { System.err.println("Unable to connect to server"); }
     }
     
-    private void listenForServerMessages(){
-		mGui = new GUI(750, 600, mServerConnection);
+    private void listenForServerMessages(){							//TODO
+		GUI mGui = new GUI(750, 600, mServerConnection);			//Fix so that it doesn't create a new GUI Window everytime it starts a serverConnection
 		mGui.addToListener();
 		do{
 			mGui.updateObjectList(mServerConnection.receivePaintings());
-			if(mServerConnection.getDisconnect()){
-                connectToFE(mFEhostName, mFEport, mServerPort);
+			if(mServerConnection.getDisconnect()){							//If the client lost connection with the primary server, try to access the new one through FE
+                connectToFE(mFEhostName, mFEport);
                 break;
             }
 		} while(true);
@@ -70,17 +60,3 @@ public class Client {
 
 
 }
-/*class ThreadRemoval implements Runnable {
-	@Override
-	//Denna metod tar bort bortkopplade klienter var femte sekund
-	public void run() {
-		while (true) {
-			try {
-				Thread.sleep(5000);
-				tryToConnect();
-			} catch (InterruptedException e) {
-				System.err.println("Failed to sleep thread: " + e.getMessage());
-			}
-		}
-	}
-}*/

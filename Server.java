@@ -3,6 +3,7 @@ package DCAD;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,26 +13,18 @@ import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Server {
+public class Server implements Serializable{
 	
-	private volatile ArrayList<GObject> mGObjects = new ArrayList<>(); 	//Denna lagrar ritade objekt
-	private volatile Vector<ClientConnection> mConnectedClients = new Vector<>(); //Lagrar uppkopplade klienter
-	private ConcurrentHashMap<UUID, Thread> mClientThreads = new ConcurrentHashMap<UUID, Thread>();
-	private FEConnection mFEConnection = null; 
+	private volatile ArrayList<GObject> mGObjects = new ArrayList<>(); 	//Stores all paintings
+	private volatile Vector<ClientConnection> mConnectedClients = new Vector<>(); //Stores clientConnections
 
 	private ServerSocket mServerSocket;
 	private Socket mClientSocket;
-	
-	private ObjectOutputStream mOut = null;
-	private ObjectInputStream mIn = null;
-	
-	private String mPrimaryAddress;
-    private String mFEHostName;
-	private int mPrimaryPort;
+
+	private String mFEHostName;
 	private int mFEport;
 	private int mServerport;
-	private boolean isPrimary;
-	static Server instance;
+	private static Server instance;
 	private ServerConnection mServerConnection;
 
 	public static void main(String[] args) {
@@ -42,10 +35,6 @@ public class Server {
 		try {			
 			instance = new Server(Integer.parseInt(args[2]));
 			instance.connectToFE(args[0], Integer.parseInt(args[1]));
-			//String hostName, int FEport, int serverPort
-
-
-
 		} catch (NumberFormatException e) {
 			System.err.println("Error: port number must be an integer.");
 			System.exit(-1);
@@ -79,11 +68,8 @@ public class Server {
 			clientConnection = new ClientConnection(mClientSocket, this);
 			
 			if(addClient(clientConnection)){
-				//Vad ska h�nda h�r?
 				Thread clientThread = new Thread(clientConnection);
 				clientThread.start();
-				mClientThreads.put(clientConnection.getUUID(), clientThread);
-
 			}
 		} while(true);
 	}
@@ -93,13 +79,9 @@ public class Server {
 			mGObjects.add((GObject) object);
 		}
 		else if(object instanceof DelMsg){
-			System.out.println(mGObjects.size() + "Before removing");
-
 			mGObjects.remove(mGObjects.size()-1);
-			System.out.println("Removed a thing");
 		}
 		else if(object instanceof PingMessage){
-			System.out.println("FICK ETT PINGMEDDELANDE!");
 		}
 		broadcast();
 	}
@@ -113,51 +95,39 @@ public class Server {
 	private void connectToFE(String hostName, int FEport) {
         mFEHostName = hostName;
         mFEport = FEport;
-		//N�r en ny server skapas ska den g� igenom FE
-		mFEConnection = new FEConnection(mFEHostName, FEport, mServerport); //Create a new FEconnection
-        if(mFEConnection.handshake()){
-            System.out.println("Detta gick igenom FE");
-            mPrimaryAddress = mFEConnection.getPrimaryAddress();
-			mPrimaryPort = mFEConnection.getPrimaryPort();
-            System.out.println(mFEConnection.getPrimary());
+		FEConnection mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport);
 
-			if(mFEConnection.getPrimary()){
+		if(mFEConnection.serverHandshake()){
+			String mPrimaryAddress = mFEConnection.getPrimaryAddress();
+			int mPrimaryPort = mFEConnection.getPrimaryPort();
+			System.out.println("Am I primary? " + mFEConnection.getPrimary());
+
+			if(mFEConnection.getPrimary()){		//Acts like a server incase it is primary
 				instance.listenForClientMessages();
 			}
-			else{
+			else{	//Connects to the primary server as a client if the server is a backup
 				mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
 				if(mServerConnection.handshake()){
-					Thread serverConThread = new Thread(mServerConnection);
+					Thread serverConThread = new Thread(mServerConnection);		//Starts a thread so that the clientServer can ping the primary server
 					serverConThread.start();
 					listenForServerMessages();
-
 				}
 			}
-
-
 		}
 	}
 
 	private void listenForServerMessages(){
-
-		do{
+		do {
 			mGObjects = mServerConnection.receivePaintings();
-            if(mServerConnection.getDisconnect()){
-                mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport);
-                if(mFEConnection.handshake()){
-                    mFEConnection.sendCrashMsg();
-                    connectToFE(mFEHostName, mFEport);
-                }
-
-
-                break;
-            }
+			if (mServerConnection.getDisconnect()) {		//If the primary server is down, try to reconnect to FE to become primary
+				connectToFE(mFEHostName, mFEport);
+				break;
+			}
 		} while(true);
 	}
 
 	class ThreadRemoval implements Runnable {
 		@Override
-		//Denna metod tar bort bortkopplade klienter var femte sekund
 		public void run() {
 			while (true) {
 				try {
@@ -172,36 +142,16 @@ public class Server {
 
 	private void removeDisconnected() {
 		for (ClientConnection mConnectedClient : mConnectedClients) {
-			System.out.println("Detta körs");
-			UUID removedUser = mConnectedClient.getUUID();
 			boolean wishesToLeave = mConnectedClient.getDisconnect();
 			if (mConnectedClient.getConTries() > 10 || wishesToLeave) {
-				System.out.printf("Client %s has crashed \n", removedUser);
+				System.out.printf("A client has crashed");
 				mConnectedClients.remove(mConnectedClient);
-				try {
-					mClientThreads.get(removedUser).join();
-					mClientThreads.remove(removedUser);
-				} catch (InterruptedException e) {
-					//e.printStackTrace();
-				}
 				break;
 			}
 		}
 	}
-	//TODO
-	//Beh�ver skapar replikationer, alternativt tv�(??)
-	//Beh�ver best�mma ny prim�r
-	//Den nya prim�ren ska meddela klienterna om den nya prim�ren
-	//Meddela andra servrar
-	//Beh�ver godk�nna klienter via FE 
-	
-	//METODER:
-	//clientRemoval();
-	//update();
-	
-	
+
     public boolean addClient(ClientConnection clientConnection) {
-        //Denna metod l�gger till klienterna
     	mConnectedClients.add(clientConnection);
         return true;
     }

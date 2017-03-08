@@ -8,7 +8,7 @@ import java.util.Random;
 import java.util.UUID;
 
 public class ClientConnection implements Runnable {
-	// Detta kan se annorlunda ut senare, KOM IH�G! pga BS
+
 	private Server mServer;
 	private Socket mClientSocket;
 
@@ -17,16 +17,14 @@ public class ClientConnection implements Runnable {
 	
 	private volatile int mConTries = 0;
 	private volatile boolean mDisconnected;
-	private UUID mUUID;
 
 	public ClientConnection(Socket clientSocket, Server server) {
 		mServer 	  = server;
 		mClientSocket = clientSocket;
 		mDisconnected = false;
-		mUUID = UUID.randomUUID();
 		
 		try {
-			mOut = new ObjectOutputStream(mClientSocket.getOutputStream()); //Skapar ny TCP-con. som kopplar den till socketen
+			mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
 			mIn  = new ObjectInputStream(mClientSocket.getInputStream());
 		} catch (IOException e) { System.err.println("Error with Object Stream: " + e.getMessage()); }
 	}
@@ -48,24 +46,18 @@ public class ClientConnection implements Runnable {
 	public boolean getDisconnect(){
 		return mDisconnected;
 	}
-	
-	public void setDisconnect(boolean value){
-		mDisconnected = value;
-	}
-	
-	
+
 	@Override
 	public void run() {
 		boolean isConnected = true;
 		
 		while (isConnected && !mDisconnected){
 			try{
-				Object o = mIn.readObject();
+				Object o = mIn.readObject();		//Receive the message here, forward to server to handle it
 					mServer.handlePaintings(o);
 				
 			}catch (IOException | ClassNotFoundException e){
 				mConTries++;
-                //System.err.println("Error reading GObject: " + e.getMessage()); MÅSTE VI HA DEN HÄR OUTPUTEN HÄR?!
 			}
 			if (mConTries > 10){ 
 				isConnected = false; 
@@ -76,9 +68,5 @@ public class ClientConnection implements Runnable {
 		} catch (IOException e) {
 			System.err.println("Could not close ClientSocket: " + e.getMessage());
 		}
-	}
-
-	public UUID getUUID(){
-		return mUUID;
 	}
 }

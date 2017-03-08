@@ -3,7 +3,6 @@ package DCAD;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 
@@ -40,11 +39,11 @@ public class ServerConnection implements Runnable {
 			e.printStackTrace();
 		}
 		try {
-			mOut.writeObject(new ConnectionMsg("le", mServerPort));
+			mOut.writeObject(new ClientConnectionMessage());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		mIsConnected = true; // N�r handshaken �r genomf�rd s�tts uppkopplingen till sann
+		mIsConnected = true;
 		return true;
 	}
 
@@ -59,19 +58,14 @@ public class ServerConnection implements Runnable {
 		return mGObjects;
 	}
 
-	public synchronized void sendGObject(Object object) {
-		// Denna tar emot klientens ritning som skickas till servern
+	public synchronized void sendGObject(Object object) {	//Sends the painting to the server
 		try {
 			mOut.writeObject(object);
-
 		} catch (IOException e) {
 			System.err.println("Error creating GObject with ObjectOutputStream: " + e.getMessage());
 		}
 	}
 
-	public synchronized int getConTries(){
-		return mConTries;
-	}
 
 	public boolean getDisconnect(){
 		return mDisconnected;
@@ -92,7 +86,6 @@ public class ServerConnection implements Runnable {
 
 			} catch (IOException e) {
 				mConTries++;
-				//System.err.println("Error reading GObject: " + e.getMessage()); MÅSTE VI HA DEN HÄR OUTPUTEN HÄR?!
 			}
 			if (mConTries > 10) {
 				isConnected = false;
