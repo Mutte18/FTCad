@@ -36,20 +36,13 @@ public class FEConnection {
         }
     }
 
-    public boolean handshake(){
-    	//Om klienten f�r true s� b�rjar den bara lyssna p� servern
-    	/*try {
-			mOut = new ObjectOutputStream(mClientSocket.getOutputStream()); //Skapar ny TCP-con. som kopplar den till socketen
-    	} catch (IOException e) {
-			System.err.println("Error with ObjectOutputStream: " + e.getMessage());
-		}
-    	boolean connectionTry = false; //Denna variabel l�ser input som f�tts via socketen*/
-    	
-
+    public boolean clientHandshake(){
     		try {
 				mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
+				System.out.println("Got past mOut");
 				mIn = new ObjectInputStream(mClientSocket.getInputStream());
-				sendConnectMsg();
+				System.out.println("Got past mIn");
+				sendClientConnectMessage();
 				awaitPrimaryMessage();
     		} catch (IOException e) {
     			System.err.println("Error reading boolean with ObjectInputStream: " + e.getMessage());
@@ -59,17 +52,44 @@ public class FEConnection {
     	return true;
     }
 
-    public void sendConnectMsg(){
+	public boolean serverHandshake(Server server){
 		try {
-			mOut.writeObject(new ConnectionMsg(mHostName, mServerPort));
+			mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
+			System.out.println("Got past mOut");
+			mIn = new ObjectInputStream(mClientSocket.getInputStream());
+			System.out.println("Got past mIn");
+			sendServerConnectMessage(server);
+			awaitPrimaryMessage();
+		} catch (IOException e) {
+			System.err.println("Error reading boolean with ObjectInputStream: " + e.getMessage());
+		}
+		//while(connectionTry == true);
+
+		return true;
+	}
+
+    public void sendConnectMsg(){
+
+	}
+
+	public void sendClientConnectMessage(){
+		try {
+			mOut.writeObject(new ClientConnectionMessage());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
+	public void sendServerConnectMessage(Server server){
+		try {
+			mOut.writeObject(new ServerConnectionMessage(mHostName, mServerPort, server));
+		} catch (IOException e) {
+			//e.printStackTrace();
+		}
+	}
+
 	public void sendCrashMsg(){
 		try {
-
 			mOut.writeObject(new CrashMessage());
 			System.out.println(mOut);
 			System.out.println("Send the crash message");

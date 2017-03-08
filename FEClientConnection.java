@@ -2,9 +2,7 @@ package DCAD;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
 import java.net.Socket;
-import java.util.ArrayList;
 
 public class FEClientConnection{
 	// Detta kan se annorlunda ut senare, KOM IH�G! pga BS
@@ -21,22 +19,27 @@ public class FEClientConnection{
 		mFE = fe;
 
 
-		ConnectionMsg connectionMsg = null;
+		ClientConnectionMessage clientConnectionMessage = null;
 		
 		try {
 			mOut = new ObjectOutputStream(mClientSocket.getOutputStream()); //Skapar ny TCP-con. som kopplar den till socketen
 			mIn  = new ObjectInputStream(mClientSocket.getInputStream());
-			Object o = mIn.readObject();
-			System.out.println(mIn);
-			System.out.println(o);
-			mFE.handleMessages(o);
-			//connectionMsg = (ConnectionMsg) mIn.readObject();
+			receiveClientMessage();
 
-		} catch (IOException e) { System.err.println("Error with Object Stream: " + e.getMessage()); } catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		}
+			//clientConnectionMessage = (ClientConnectionMessage) mIn.readObject();
+
+		} catch (IOException e) { System.err.println("Error with Object Stream: " + e.getMessage()); }
 	}
 
+	private void receiveClientMessage(){
+		try {
+			Object o = mIn.readObject();
+			mFE.handleMessages(o);
+		} catch (IOException | ClassNotFoundException e) {
+			//e.printStackTrace();
+		}
+
+	}
 
 	
 	public synchronized void sendRespondMsg(String primaryaddress, int primaryport, boolean isPrimary){

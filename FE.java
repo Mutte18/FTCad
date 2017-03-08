@@ -2,9 +2,9 @@ package DCAD;
 
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 
 public class FE {
 	private ServerSocket mFESocket;
@@ -18,6 +18,9 @@ public class FE {
 
 	private ObjectOutputStream mOut = null;
 	private boolean noPrimary;
+	private Server mServer;
+
+	private ArrayList<FEClientConnection> mConnectedClients;
 
 	public static void main(String[] args) {
 		if (args.length < 1) {
@@ -35,6 +38,7 @@ public class FE {
 
 	private FE(int portNumber) {
 		try {
+			mConnectedClients = new ArrayList<>();
 			noPrimary = true;
 			mFESocket = new ServerSocket(portNumber);
 		} catch (IOException e) {
@@ -47,6 +51,7 @@ public class FE {
 
 		do {
 			FEClientConnection feClientConnection = null;
+
 			try {
 				mClientSocket = mFESocket.accept();
 
@@ -72,18 +77,26 @@ public class FE {
 		} while (true);
 	}
 
+	private void addServer(FEClientConnection feClientConnection){
+
+	}
+
 	public void setNoPrimary(boolean value){
 		noPrimary = value;
 	}
 
 	public synchronized void handleMessages(Object object){
-		if(object instanceof ConnectionMsg){					//Handles the connection message
-			mHostname = ((ConnectionMsg) object).getHostname();
-			mPortnumber = ((ConnectionMsg) object).getPort();
+		if(object instanceof ClientConnectionMessage){					//Handles the connection message
 		}
 		else if(object instanceof CrashMessage){		//If the primary server has crashed we reset the bool to true
 			System.out.println("Crashmessage received");
 			setNoPrimary(true);
+		}
+		else if(object instanceof ServerConnectionMessage){
+			mHostname = ((ServerConnectionMessage) object).getHostname();
+			mPortnumber = ((ServerConnectionMessage) object).getPort();
+			mServer = ((ServerConnectionMessage) object).getServer();
+			System.out.println(mServer);
 		}
 
 	}

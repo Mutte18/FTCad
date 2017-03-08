@@ -39,7 +39,7 @@ public class Client {
 
         mFEConnection = new FEConnection(mFEhostName, mFEport, mServerPort); //Create a new FEconnection
         
-        if (mFEConnection.handshake()) {
+        if (mFEConnection.clientHandshake()) {
 			mPrimaryAddress = mFEConnection.getPrimaryAddress();
 			mPrimaryPort = mFEConnection.getPrimaryPort();
 			System.out.println(mPrimaryAddress + "Ska vara serverns?");
