@@ -130,7 +130,7 @@ public class FEConnection implements Runnable{
 				isConnected = false;
 			}
 			try {
-				Thread.sleep(500);
+				Thread.sleep(1000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -138,7 +138,8 @@ public class FEConnection implements Runnable{
 		try {
 			mClientSocket.close();
 			setDisconnect(true);
-			System.out.println("KRASHAD");
+
+			System.out.println("KRASCHAD");
 
 		} catch (IOException e) {
 			System.err.println("Could not close ClientSocket: " + e.getMessage());

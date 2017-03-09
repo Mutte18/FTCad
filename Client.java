@@ -40,7 +40,8 @@ public class Client {
 			int mPrimaryPort = mFEConnection.getPrimaryPort();
 
         	mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
-        	mGUI.setServerConnection(mServerConnection);
+			System.out.println(mPrimaryAddress + " " + mPrimaryPort);
+			mGUI.setServerConnection(mServerConnection);
         	
         	if(mServerConnection.handshake()){
 				Thread serverConThread = new Thread(mServerConnection);		//Starts a thread so that the client can ping the server

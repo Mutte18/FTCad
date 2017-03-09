@@ -13,10 +13,11 @@ import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Server implements Serializable {
+public class Server{
 
     private volatile ArrayList<GObject> mGObjects = new ArrayList<>();    //Stores all paintings
-    private volatile ArrayList<ClientConnection> mConnectedClients = new ArrayList<>(); //Stores clientConnections
+    private Vector<ClientConnection> mConnectedClients = new Vector<>(); //Stores clientConnections
+    private Vector<ClientConnection> mToDiconnect;
 
     private ServerSocket mServerSocket;
     private Socket mClientSocket;
@@ -27,6 +28,7 @@ public class Server implements Serializable {
     private static Server instance;
     private ServerConnection mServerConnection;
     private FEConnection mFEConnection;
+    private boolean isPrimary;
 
     public static void main(String[] args) {
         if (args.length < 3) {
@@ -46,8 +48,7 @@ public class Server implements Serializable {
         try {
             mServerSocket = new ServerSocket(portNumber);
             mServerport = portNumber;
-            Thread thread = new Thread(new ThreadRemoval());
-            thread.start();
+
 
 
         } catch (IOException e) {
@@ -57,8 +58,8 @@ public class Server implements Serializable {
 
     private void listenForClientMessages() {
         System.out.println("Waiting for client messages... ");
-
-        do {
+        disconnectClients();
+        while(isPrimary) {
             ClientConnection clientConnection;
 
             try {
@@ -72,15 +73,15 @@ public class Server implements Serializable {
             if (addClient(clientConnection)) {
                 Thread clientThread = new Thread(clientConnection);
                 clientThread.start();
-            }
-        } while (true);
-    }
 
-    private void pingFE() {
-        if (mFEConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
-            connectToFE(mFEHostName, mFEport);
+                Thread thread = new Thread(new ThreadRemoval());
+                thread.start();
+            }
+            System.out.println(mConnectedClients.size());
         }
     }
+
+
 
 
     public synchronized void handlePaintings(Object object) {
@@ -109,16 +110,20 @@ public class Server implements Serializable {
         if (mFEConnection.serverHandshake()) {
             String mPrimaryAddress = mFEConnection.getPrimaryAddress();
             int mPrimaryPort = mFEConnection.getPrimaryPort();
+            isPrimary = mFEConnection.getPrimary();
             System.out.println("Am I primary? " + mFEConnection.getPrimary());
-            if(!mFEConnection.getPrimary())
-                disconnectClients();
+
+
+            disconnectClients();
+
 
             Thread FEpingThread = new Thread(mFEConnection);        //Starts a thread so that the clientServer can ping the primary server
             FEpingThread.start();
 
-            if (mFEConnection.getPrimary()) {        //Acts like a server incase it is primary
+            if (isPrimary) {        //Acts like a server incase it is primary
                 instance.listenForClientMessages();
-            } else {    //Connects to the primary server as a client if the server is a backup
+            }
+            else {    //Connects to the primary server as a client if the server is a backup
                 mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
                 if (mServerConnection.handshake()) {
                     Thread serverConThread = new Thread(mServerConnection);        //Starts a thread so that the clientServer can ping the primary server
@@ -129,25 +134,33 @@ public class Server implements Serializable {
         }
     }
 
-    private void disconnectClients(){
-        for (ClientConnection mConnectedClient : mConnectedClients) {
-            mConnectedClients.remove(mConnectedClient);
+    private void disconnectClients(){       //Disconnect all clients when FE goes down
+        //mToDiconnect = mConnectedClients;
+        if(mConnectedClients.size() > 0) {
+            for (ClientConnection mConnectedClient : mConnectedClients) {
+                mConnectedClient.sendDisconnectMessage();
+                mConnectedClient.setDisconnect(true);
+                //mConnectedClients.remove(mConnectedClient);
+            }
+            mConnectedClients.clear();
+            System.out.println("Clear kördes");
         }
+        System.out.println(mConnectedClients.size());
+
     }
 
     private void listenForServerMessages() {
-        do {
+        while (!isPrimary){
             mGObjects = mServerConnection.receivePaintings();
             if (mServerConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
                 System.out.println("bServer gick fröbi");
                 connectToFE(mFEHostName, mFEport);
-
                 break;
             }
-        } while (true);
+        }
     }
 
-    class ThreadRemoval implements Runnable {
+    class ThreadRemoval implements Runnable {       //Thread to remove disconnected clients from prim server
         @Override
         public void run() {
             while (true) {
@@ -158,6 +171,13 @@ public class Server implements Serializable {
                     System.err.println("Failed to sleep thread: " + e.getMessage());
                 }
             }
+        }
+    }
+
+    private void pingFE() {
+        if (mFEConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
+            isPrimary = false;
+            connectToFE(mFEHostName, mFEport);
         }
     }
 
@@ -180,10 +200,10 @@ public class Server implements Serializable {
 
     private void removeDisconnected() {
         for (ClientConnection mConnectedClient : mConnectedClients) {
-            boolean wishesToLeave = mConnectedClient.getDisconnect();
-            if (mConnectedClient.getConTries() > 10 || wishesToLeave) {
+            if (mConnectedClient.getConTries() > 10) {
                 System.out.printf("A client has crashed");
                 mConnectedClients.remove(mConnectedClient);
+                System.out.println(mConnectedClients.size());
                 break;
             }
         }

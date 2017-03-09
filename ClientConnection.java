@@ -38,12 +38,26 @@ public class ClientConnection implements Runnable {
 		}
 	}
 
+	public void sendDisconnectMessage(){
+		try {
+			System.out.println("INnan skickat delsmg");
+			mOut.writeObject(new DelMsg());
+			System.out.println("Efter skickat delsmg");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public synchronized int getConTries(){
 		return mConTries;
 	}
 	
 	public boolean getDisconnect(){
 		return mDisconnected;
+	}
+
+	public void setDisconnect(boolean value){
+		mDisconnected = value;
 	}
 
 	@Override
@@ -64,6 +78,7 @@ public class ClientConnection implements Runnable {
 		}
 		try {
 			mClientSocket.close();
+
 
 		} catch (IOException e) {
 			System.err.println("Could not close ClientSocket: " + e.getMessage());
