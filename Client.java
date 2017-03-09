@@ -7,6 +7,7 @@ public class Client {
 
 	private String mFEhostName;
 	private int mFEport;
+	private GUI mGUI;
 
 	
 	public static void main(String[] args) {
@@ -24,6 +25,8 @@ public class Client {
 	}
 
 	private Client() {
+		mGUI = new GUI(750, 600);			//Fix so that it doesn't create a new GUI Window everytime it starts a serverConnection
+		mGUI.addToListener();
 	}
 	
     private void connectToFE(String hostName, int FEport) {
@@ -37,6 +40,7 @@ public class Client {
 			int mPrimaryPort = mFEConnection.getPrimaryPort();
 
         	mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
+        	mGUI.setServerConnection(mServerConnection);
         	
         	if(mServerConnection.handshake()){
 				Thread serverConThread = new Thread(mServerConnection);		//Starts a thread so that the client can ping the server
@@ -45,18 +49,26 @@ public class Client {
         	}
         } else { System.err.println("Unable to connect to server"); }
     }
+
     
     private void listenForServerMessages(){							//TODO
-		GUI mGui = new GUI(750, 600, mServerConnection);			//Fix so that it doesn't create a new GUI Window everytime it starts a serverConnection
-		mGui.addToListener();
+
 		do{
-			mGui.updateObjectList(mServerConnection.receivePaintings());
+			mGUI.updateObjectList(mServerConnection.receivePaintings());
 			if(mServerConnection.getDisconnect()){							//If the client lost connection with the primary server, try to access the new one through FE
-                connectToFE(mFEhostName, mFEport);
-                break;
+				try {
+					Thread.sleep(1000); //Sleep one second so that the client doesnt try to connect ahead of servers
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				System.out.println("We reconnected, boys!!");
+				connectToFE(mFEhostName, mFEport);
+
+				break;
             }
 		} while(true);
     }
+
 
 
 }

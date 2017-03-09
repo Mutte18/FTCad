@@ -35,7 +35,6 @@ public class ClientConnection implements Runnable {
 			mOut.writeObject(list);
 		} catch (IOException e) {
 			mConTries++;
-			System.err.println("Could not write GObject: " + e.getMessage());
 		}
 	}
 
@@ -65,6 +64,7 @@ public class ClientConnection implements Runnable {
 		}
 		try {
 			mClientSocket.close();
+
 		} catch (IOException e) {
 			System.err.println("Could not close ClientSocket: " + e.getMessage());
 		}

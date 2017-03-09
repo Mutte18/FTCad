@@ -7,7 +7,7 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 
-public class FEConnection {
+public class FEConnection implements Runnable{
 
 	private Socket mClientSocket 	= null;
 	private String mHostName 		= null;
@@ -20,6 +20,9 @@ public class FEConnection {
 	private String mPrimaryAddress;
 	private int mPrimaryPort;
 	private boolean isPrimary;
+	private int mConTries;
+	private boolean mDisconnected;
+	private volatile boolean mIsConnected;
 	
 	
     public FEConnection(String hostName, int FEport, int serverPort) {
@@ -100,6 +103,46 @@ public class FEConnection {
 
 	public boolean getPrimary(){
 		return isPrimary;
+	}
+
+	public boolean getDisconnect(){
+		return mDisconnected;
+	}
+
+	public void setDisconnect(boolean value){
+		mDisconnected = value;
+	}
+
+	@Override
+	public void run() {
+		boolean isConnected = true;
+
+		while (isConnected && !mDisconnected) {
+			try {
+				PingMessage pingumessage = new PingMessage();
+				mOut.writeObject(pingumessage);
+
+
+			} catch (IOException e) {
+				mConTries++;
+			}
+			if (mConTries > 10) {
+				isConnected = false;
+			}
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		try {
+			mClientSocket.close();
+			setDisconnect(true);
+			System.out.println("KRASHAD");
+
+		} catch (IOException e) {
+			System.err.println("Could not close ClientSocket: " + e.getMessage());
+		}
 	}
 
 }

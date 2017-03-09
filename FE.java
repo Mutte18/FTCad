@@ -42,24 +42,23 @@ public class FE {
         }
     }
 
-    private void listenForClientHandshake() {
+    private synchronized void listenForClientHandshake() {
         System.out.println("Waiting for handshake...!");
 
         do {
             FEClientConnection feClientConnection = null;
-
             try {
                 mClientSocket = mFESocket.accept();
-                feClientConnection = new FEClientConnection(mClientSocket);
+                feClientConnection = new FEClientConnection(mClientSocket, this);
                 if (addServer(feClientConnection)) {
                     Thread feClientThread = new Thread(feClientConnection);
                     feClientThread.start();
                     if (noPrimary) {        //If we don't have a primary server yet
 
-
                         mPrimaryAddress = feClientConnection.getHostName();
                         mPrimaryPort = feClientConnection.getPortNumber();
                         feClientConnection.setPrimary(true);
+
                     }
                 }
             } catch (IOException e) {
@@ -67,7 +66,9 @@ public class FE {
             }
 
             feClientConnection.sendRespondMsg(mPrimaryAddress, mPrimaryPort, noPrimary);
-            noPrimary = false;  //Sets it to false so that other servers will be backup
+            if(feClientConnection.isPrimary()){
+                noPrimary = false;
+            }
         } while (true);
     }
 
@@ -89,7 +90,8 @@ public class FE {
         public void run() {
             while (true) {
                 try {
-                    Thread.sleep(4000);
+                    System.out.println(noPrimary);
+                    Thread.sleep(3000);
                     removeDisconnected();
                 } catch (InterruptedException e) {
                     System.err.println("Failed to sleep thread: " + e.getMessage());

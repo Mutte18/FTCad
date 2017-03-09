@@ -16,9 +16,11 @@ public class FEClientConnection implements Runnable {
     private volatile int mConTries = 0;
     private boolean isServer;
     private boolean isPrimary;
+    private FE mFE;
 
-    public FEClientConnection(Socket clientSocket) {
+    public FEClientConnection(Socket clientSocket, FE fe) {
         mClientSocket = clientSocket;
+        mFE = fe;
 
         try {
             mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
@@ -39,13 +41,14 @@ public class FEClientConnection implements Runnable {
     }
 
     public synchronized void handleMessages(Object object) {
-        System.out.println(object);
         if (object instanceof ClientConnectionMessage) {            //Nothing special is done if it is a client message
             isServer = false;
         } else if (object instanceof ServerConnectionMessage) {             //If a server tries to connect get the IP and port
             mHostname = ((ServerConnectionMessage) object).getHostname();
             mPortNumber = ((ServerConnectionMessage) object).getPort();
             isServer = true;    //Used for comparision in FE
+        }
+        else if(object instanceof PingMessage){
         }
     }
 
@@ -85,11 +88,12 @@ public class FEClientConnection implements Runnable {
     @Override
     public void run() {
         boolean isConnected = true;
-
         while (isConnected && !mDisconnected) {
 
             try {
-                mIn.readObject();
+
+                Object o = mIn.readObject();		//Receive the message here, forward to server to handle it
+                handleMessages(o);
             } catch (IOException | ClassNotFoundException e) {
                 mConTries++;
             }

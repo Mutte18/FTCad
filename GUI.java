@@ -30,23 +30,22 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
 	JButton greenButton = new JButton("Green");
 	JButton whiteButton = new JButton("White");
 	JButton pinkButton = new JButton("Pink");
-	// Den startar med det som står nedan
+	// Den startar med det som stï¿½r nedan
 	private GObject template = new GObject(Shape.OVAL, Color.RED, 363, 65, 25, 25);
 	private GObject current = null;
-	// Denna lista sparar de ritade objekten, så de inte försvinner när ett nytt
+	// Denna lista sparar de ritade objekten, sï¿½ de inte fï¿½rsvinner nï¿½r ett nytt
 	// objekt ritas
 	private ArrayList<GObject> objectList = new ArrayList<GObject>();
 	private ServerConnection mServerConnection;
 
-	public GUI(int xpos, int ypos, ServerConnection serverConnection) {
-		setSize(xpos, ypos); // Sätter storleken på rutan
-		setTitle("FTCAD"); // Sätter namn på fönstret
-		mServerConnection = serverConnection;
+	public GUI(int xpos, int ypos) {
+		setSize(xpos, ypos); // Sï¿½tter storleken pï¿½ rutan
+		setTitle("FTCAD"); // Sï¿½tter namn pï¿½ fï¿½nstret
 
-		Container pane = getContentPane(); // Panel för knappar
-		pane.setBackground(Color.BLACK); // Färg på panel
+		Container pane = getContentPane(); // Panel fï¿½r knappar
+		pane.setBackground(Color.BLACK); // Fï¿½rg pï¿½ panel
 
-		pane.add(ovalButton); // Lägger till knappar
+		pane.add(ovalButton); // Lï¿½gger till knappar
 		pane.add(rectangleButton);
 		pane.add(lineButton);
 		pane.add(filledOvalButton);
@@ -57,7 +56,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
 		pane.add(whiteButton);
 		pane.add(pinkButton);
 
-		pane.setLayout(new FlowLayout()); // Sätter Layout för knapparna i
+		pane.setLayout(new FlowLayout()); // Sï¿½tter Layout fï¿½r knapparna i
 											// panelen
 		setVisible(true);
 	}
@@ -201,6 +200,10 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
 	public void updateObjectList(ArrayList gobjects){
 		objectList = gobjects;
 		repaint();
+	}
+
+	public void setServerConnection(ServerConnection serverConnection){
+		mServerConnection = serverConnection;
 	}
 	
 }
