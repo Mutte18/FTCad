@@ -9,10 +9,12 @@ public class ServerConnectionMessage implements Serializable {
 
     private String mHostname;
     private int mPort;
+    private boolean mWasPrimary;
 
-    public ServerConnectionMessage(String hostname, int port){
+    public ServerConnectionMessage(String hostname, int port, boolean wasPrimary){
         mHostname = hostname;
         mPort = port;
+        mWasPrimary = wasPrimary;
 
     }
 
@@ -24,4 +26,7 @@ public class ServerConnectionMessage implements Serializable {
         return mPort;
     }
 
+    public boolean getWasPrimary() {
+        return mWasPrimary;
+    }
 }

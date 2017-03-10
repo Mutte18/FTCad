@@ -7,143 +7,178 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 
-public class FEConnection implements Runnable{
+public class FEConnection implements Runnable {
 
-	private Socket mClientSocket 	= null;
-	private String mHostName 		= null;
-	
-	private ObjectOutputStream mOut 	= null;	//Object skickas, TCP
-	private ObjectInputStream mIn		= null;	//Object tas emot, TCP
+    private Socket mClientSocket = null;
+    private String mHostName = null;
 
-	private int mServerPort = -1;
-	private int mFEPort;
-	private String mPrimaryAddress;
-	private int mPrimaryPort;
-	private boolean isPrimary;
-	private int mConTries;
-	private boolean mDisconnected;
-	private volatile boolean mIsConnected;
-	
-	
-    public FEConnection(String hostName, int FEport, int serverPort) {
-        mHostName 	= hostName;
+    private ThreadSafeObjectStream mOut = null;    //Object skickas, TCP
+    private ObjectInputStream mIn = null;    //Object tas emot, TCP
+
+    private int mServerPort = -1;
+    private int mFEPort;
+    private String mPrimaryAddress;
+    private int mPrimaryPort;
+    private boolean isPrimary;
+    private int mConTries;
+    private boolean mDisconnected;
+    private volatile boolean mIsConnected;
+    private Server mServer;
+
+
+    public FEConnection(String hostName, int FEport, int serverPort, Server server) {
+        mHostName = hostName;
         mFEPort = FEport;
-		mServerPort = serverPort;
+        mServerPort = serverPort;
+        mServer = server;
 
-		try {
-            mClientSocket = new Socket(hostName, FEport);
+    }
+
+    public void clientHandshake() {
+        try {
+            mClientSocket = new Socket(mHostName, mFEPort);
+            mOut = new ThreadSafeObjectStream(new ObjectOutputStream(mClientSocket.getOutputStream()));
+            mIn = new ObjectInputStream(mClientSocket.getInputStream());
         } catch (IOException e) {
-            System.err.println("Could not create ClientSocket: " + e.getMessage());
+        }
+        sendClientConnectMessage();
+        awaitPrimaryMessage();
+    }
+
+    public void serverHandshake() {
+        try {
+            mClientSocket = new Socket(mHostName, mFEPort);
+            mOut = new ThreadSafeObjectStream(new ObjectOutputStream(mClientSocket.getOutputStream()));
+            mIn = new ObjectInputStream(mClientSocket.getInputStream());
+        } catch (IOException e) {
+        }
+        sendServerConnectMessage();
+    }
+
+
+    public void sendClientConnectMessage() {
+        try {
+
+            mOut.writeObject(new ClientConnectionMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    public boolean clientHandshake(){
-    		try {
-				mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
-				mIn = new ObjectInputStream(mClientSocket.getInputStream());
-				sendClientConnectMessage();
-				awaitPrimaryMessage();
-    		} catch (IOException e) {
-    			System.err.println("Error reading boolean with ObjectInputStream: " + e.getMessage());
-			}
-    	return true;
+    public void sendServerConnectMessage() {
+        try {
+            System.out.println(isPrimary + " " + "Before sending serverIsPrimary");
+            mOut.writeObject(new ServerConnectionMessage(mHostName, mServerPort, isPrimary));    //We want to store the address and port of the server in FE
+
+        } catch (IOException e) {
+            //e.printStackTrace();
+        }
+
     }
 
-	public boolean serverHandshake(){
-		try {
-			mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
-			mIn = new ObjectInputStream(mClientSocket.getInputStream());
-			sendServerConnectMessage();
-			awaitPrimaryMessage();
-		} catch (IOException e) {
-			System.err.println("Error reading boolean with ObjectInputStream: " + e.getMessage());
-		}
-		return true;
-	}
+    public void awaitPrimaryMessage() {
+
+        try {
+            Object object = mIn.readObject();
+
+            if (object instanceof PingMessage) {
+
+            } else if (object instanceof PrimaryMsg) {
+
+                //PrimaryMsg primaryMsg = (PrimaryMsg) object;
+                mPrimaryAddress = ((PrimaryMsg) object).getPrimaryAddress();
+                mPrimaryPort = ((PrimaryMsg) object).getPrimaryPort();
+                //isPrimary = ((PrimaryMsg) object).getPrimary();
+                System.out.println(mPrimaryAddress + mPrimaryPort  + " Client " + object );
+            }
+
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void listenToFrontEndMessages() {
+        while (true) {
+            try {
+                Object object = mIn.readObject();
+
+                if (object instanceof PingMessage) {
+                } else if (object instanceof PrimaryMsg) {
+                    PrimaryMsg primaryMsg = (PrimaryMsg) object;
+                    mPrimaryAddress = primaryMsg.getPrimaryAddress();
+                    mPrimaryPort = primaryMsg.getPrimaryPort();
+                    isPrimary = primaryMsg.getPrimary();
+                    mServer.setPrimary(isPrimary);
+                    System.out.println("I am Primary" + " " + isPrimary);
+                }
 
 
-	public void sendClientConnectMessage(){
-		try {
-			mOut.writeObject(new ClientConnectionMessage());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+            } catch (IOException e) {
+                return;
+            } catch (ClassNotFoundException e) {
+            }
+        }
+    }
 
-	public void sendServerConnectMessage(){
-		try {
-			mOut.writeObject(new ServerConnectionMessage(mHostName, mServerPort));	//We want to store the address and port of the server in FE
-		} catch (IOException e) {
-			//e.printStackTrace();
-		}
-	}
+    public String getPrimaryAddress() {
+        return mPrimaryAddress;
+    }
 
-    public boolean awaitPrimaryMessage(){
-		PrimaryMsg primaryMsg = null;
-		try {
-			primaryMsg = (PrimaryMsg) mIn.readObject();
-		} catch (IOException | ClassNotFoundException e) {
-			e.printStackTrace();
-		}
-		assert primaryMsg != null;
-		mPrimaryAddress = primaryMsg.getPrimaryAddress();
-		mPrimaryPort = primaryMsg.getPrimaryPort();
-		isPrimary = primaryMsg.getPrimary();
+    public int getPrimaryPort() {
+        return mPrimaryPort;
+    }
 
-		return true;
-	}
+    public boolean getPrimary() {
+        return isPrimary;
+    }
 
-	public String getPrimaryAddress(){
-		return mPrimaryAddress;
-	}
+    public boolean getDisconnect() {
+        return mDisconnected;
+    }
 
-	public int getPrimaryPort(){
-		return mPrimaryPort;
-	}
+    public void setDisconnect(boolean value) {
+        mDisconnected = value;
+    }
 
-	public boolean getPrimary(){
-		return isPrimary;
-	}
+    public void sendGetPrimary(){
+        try {
+            mOut.writeObject(new GetPrimaryMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-	public boolean getDisconnect(){
-		return mDisconnected;
-	}
-
-	public void setDisconnect(boolean value){
-		mDisconnected = value;
-	}
-
-	@Override
-	public void run() {
-		boolean isConnected = true;
-
-		while (isConnected && !mDisconnected) {
-			try {
-				PingMessage pingumessage = new PingMessage();
-				mOut.writeObject(pingumessage);
+    @Override
+    public void run() {
+        while (true) {
+            try {
 
 
-			} catch (IOException e) {
-				mConTries++;
-			}
-			if (mConTries > 10) {
-				isConnected = false;
-			}
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-		try {
-			mClientSocket.close();
-			setDisconnect(true);
+                serverHandshake();
+                mClientSocket.setSoTimeout(5000);
+                PingClass pingClass = new PingClass(mOut);
+                Thread pingingThread = new Thread(pingClass);
+                pingingThread.start();
 
-			System.out.println("KRASCHAD");
+                listenToFrontEndMessages();
 
-		} catch (IOException e) {
-			System.err.println("Could not close ClientSocket: " + e.getMessage());
-		}
-	}
+                pingClass.shutdown();
+                pingingThread.interrupt();
+                pingingThread.join();
+                mClientSocket.close();
 
+            } catch (IOException e) {
+                System.err.println("Connection refused, trying again");
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e1) {
+
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
+    }
 }

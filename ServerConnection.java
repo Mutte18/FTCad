@@ -6,34 +6,32 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 
-public class ServerConnection implements Runnable {
+public class ServerConnection {
     private ArrayList<GObject> mGObjects;
     private Socket mClientSocket = null;
     private String mServerName = null;
 
-    private ObjectOutputStream mOut = null;
+    private ThreadSafeObjectStream mOut = null;
     private ObjectInputStream mIn = null;
 
     private volatile boolean mIsConnected;
     private int mServerPort = -1;
     private int mConTries;
     private boolean mDisconnected;
+    private ListReceiver mListReceiver;
 
-    public ServerConnection(String serverName, int serverPort) {
+    public ServerConnection(String serverName, int serverPort, ListReceiver listReceiver) {
         mServerName = serverName;
         mServerPort = serverPort;
+        mListReceiver = listReceiver;
 
-        try {
-            mClientSocket = new Socket(serverName, serverPort);
-        } catch (IOException e) {
-            System.err.println("Could not create ClientSocket: " + e.getMessage());
-        }
+
     }
 
     public boolean handshake() {
         // Kopplar mOut till klientens socket
         try {
-            mOut = new ObjectOutputStream(mClientSocket.getOutputStream());
+            mOut = new ThreadSafeObjectStream(new ObjectOutputStream(mClientSocket.getOutputStream()));
             mIn = new ObjectInputStream(mClientSocket.getInputStream());
         } catch (IOException e) {
             e.printStackTrace();
@@ -50,22 +48,24 @@ public class ServerConnection implements Runnable {
     public ArrayList receivePaintings() {
         if (mIsConnected) {
             try {
-                Object o = mIn.readObject();		//Receive the message here, forward to server to handle it
+                mClientSocket.setSoTimeout(5000);
+                Object o = mIn.readObject();        //Receive the message here, forward to server to handle it
                 handleMessage(o);
 
             } catch (ClassNotFoundException | IOException e) {
+                mIsConnected = false;
                 //System.err.println("Error reading Vector using ObjectInputStream: " + e.getMessage());
             }
         }
         return mGObjects;
     }
 
-    public void handleMessage(Object object){
+    public void handleMessage(Object object) {
         if (object instanceof ArrayList) {
             mGObjects = (ArrayList) object;
         } else if (object instanceof DelMsg) {
             System.out.println("tog emot delsmg");
-           mDisconnected = true;
+            mDisconnected = true;
         }
 
 
@@ -88,35 +88,37 @@ public class ServerConnection implements Runnable {
         mDisconnected = value;
     }
 
+    private void listenForServerMessages() {
+        System.out.println("Listening for server messages..");
 
-    @Override
-    public void run() {
-        boolean isConnected = true;
-
-        while (isConnected && !mDisconnected) {
-            try {
-                PingMessage pingMessage = new PingMessage();
-                mOut.writeObject(pingMessage);
-
-            } catch (IOException e) {
-                mConTries++;
-            }
-            if (mConTries > 10) {
-                isConnected = false;
-            }
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        while (mIsConnected) {
+            mGObjects = receivePaintings();
+            mListReceiver.receive(mGObjects);
         }
-        try {
-            mClientSocket.close();
-            setDisconnect(true);
+    }
 
-            System.out.println("DENNA SKA NU RECONNECTA");
+    public void run() {
+        try {
+            mClientSocket = new Socket(mServerName, mServerPort);
         } catch (IOException e) {
-            System.err.println("Could not close ClientSocket: " + e.getMessage());
+            e.printStackTrace();
+        }
+        handshake();
+        PingClass pingClass = new PingClass(mOut);
+        Thread pingingThread = new Thread(pingClass);
+        pingingThread.start();
+
+
+        listenForServerMessages();
+        try {
+            pingClass.shutdown();
+            pingingThread.interrupt();
+            pingingThread.join();
+            mClientSocket.close();
+        } catch (InterruptedException e1) {
+            e1.printStackTrace();
+        } catch (IOException e1) {
+            e1.printStackTrace();
         }
     }
 }

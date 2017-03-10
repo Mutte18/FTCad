@@ -13,9 +13,9 @@ import java.util.UUID;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Server{
+public class Server implements ListReceiver {
 
-    private volatile ArrayList<GObject> mGObjects = new ArrayList<>();    //Stores all paintings
+    private volatile ArrayList mGObjects = new ArrayList<>();    //Stores all paintings
     private Vector<ClientConnection> mConnectedClients = new Vector<>(); //Stores clientConnections
     private Vector<ClientConnection> mToDiconnect;
 
@@ -28,7 +28,7 @@ public class Server{
     private static Server instance;
     private ServerConnection mServerConnection;
     private FEConnection mFEConnection;
-    private boolean isPrimary;
+    private volatile boolean isPrimary;
 
     public static void main(String[] args) {
         if (args.length < 3) {
@@ -37,7 +37,7 @@ public class Server{
         }
         try {
             instance = new Server(Integer.parseInt(args[2]));
-            instance.connectToFE(args[0], Integer.parseInt(args[1]));
+            instance.initializeFE(args[0], Integer.parseInt(args[1]));
         } catch (NumberFormatException e) {
             System.err.println("Error: port number must be an integer.");
             System.exit(-1);
@@ -50,7 +50,6 @@ public class Server{
             mServerport = portNumber;
 
 
-
         } catch (IOException e) {
             System.err.println("Could not bind ServerSocket: " + e.getMessage());
         }
@@ -58,8 +57,8 @@ public class Server{
 
     private void listenForClientMessages() {
         System.out.println("Waiting for client messages... ");
-        disconnectClients();
-        while(isPrimary) {
+
+        while (isPrimary) {
             ClientConnection clientConnection;
 
             try {
@@ -74,14 +73,14 @@ public class Server{
                 Thread clientThread = new Thread(clientConnection);
                 clientThread.start();
 
-                Thread thread = new Thread(new ThreadRemoval());
-                thread.start();
+                /*Thread thread = new Thread(new ThreadRemoval());
+                thread.start();*/
             }
             System.out.println(mConnectedClients.size());
         }
+        System.out.println("Slutade vara primary!");
+        disconnectClients();
     }
-
-
 
 
     public synchronized void handlePaintings(Object object) {
@@ -100,46 +99,64 @@ public class Server{
         }
     }
 
+    private void initializeFE(String hostName, int FEport){
+        while(true){
+            connectToFE(hostName, FEport);
+        }
+    }
+
     private void connectToFE(String hostName, int FEport) {
         mFEHostName = hostName;
         mFEport = FEport;
-        mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport);
-
-        Thread feThread = new Thread(new FEConnectionTries());
+        System.out.println("Connecting to FrontEnd");
+        mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport, this);
+        Thread feThread = new Thread(mFEConnection);
         feThread.start();
-        if (mFEConnection.serverHandshake()) {
-            String mPrimaryAddress = mFEConnection.getPrimaryAddress();
-            int mPrimaryPort = mFEConnection.getPrimaryPort();
-            isPrimary = mFEConnection.getPrimary();
-            System.out.println("Am I primary? " + mFEConnection.getPrimary());
+        boolean isConnected = true;
 
+        while (true) {
 
-            disconnectClients();
+            if (mFEConnection.getPrimaryAddress() != null) {
+                String mPrimaryAddress = mFEConnection.getPrimaryAddress();
+                int mPrimaryPort = mFEConnection.getPrimaryPort();
+                isPrimary = mFEConnection.getPrimary();
+                System.out.println("Am I primary? " + mFEConnection.getPrimary());
 
+                if (isPrimary) {        //Acts like a server incase it is primary
+                    listenForClientMessages();
+                } else {    //Connects to the primary server as a client if the server is a backup
+                    disconnectClients();
+                    mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort, this);
+                    mServerConnection.run();
+                    System.out.println("Lost connection");
+                    mFEConnection.sendGetPrimary();
 
-            Thread FEpingThread = new Thread(mFEConnection);        //Starts a thread so that the clientServer can ping the primary server
-            FEpingThread.start();
-
-            if (isPrimary) {        //Acts like a server incase it is primary
-                instance.listenForClientMessages();
-            }
-            else {    //Connects to the primary server as a client if the server is a backup
-                mServerConnection = new ServerConnection(mPrimaryAddress, mPrimaryPort);
-                if (mServerConnection.handshake()) {
-                    Thread serverConThread = new Thread(mServerConnection);        //Starts a thread so that the clientServer can ping the primary server
-                    serverConThread.start();
-                    listenForServerMessages();
                 }
+            }
+            try {
+                Thread.sleep(500);
+
+
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+
             }
         }
     }
 
-    private void disconnectClients(){       //Disconnect all clients when FE goes down
+    public void setPrimary(boolean value){
+        if(isPrimary && !value){
+        }
+        isPrimary = value;
+    }
+
+    private void disconnectClients() {       //Disconnect all clients when FE goes down
         //mToDiconnect = mConnectedClients;
-        if(mConnectedClients.size() > 0) {
+        if (mConnectedClients.size() > 0) {
             for (ClientConnection mConnectedClient : mConnectedClients) {
                 mConnectedClient.sendDisconnectMessage();
-                mConnectedClient.setDisconnect(true);
+                mConnectedClient.terminateClient();
+                //mConnectedClient.setDisconnect(true);
                 //mConnectedClients.remove(mConnectedClient);
             }
             mConnectedClients.clear();
@@ -149,8 +166,8 @@ public class Server{
 
     }
 
-    private void listenForServerMessages() {
-        while (!isPrimary){
+    /*private void listenForServerMessages() {
+        while (!isPrimary) {
             mGObjects = mServerConnection.receivePaintings();
             if (mServerConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
                 System.out.println("bServer gick fröbi");
@@ -158,9 +175,9 @@ public class Server{
                 break;
             }
         }
-    }
+    }*/
 
-    class ThreadRemoval implements Runnable {       //Thread to remove disconnected clients from prim server
+    /*class ThreadRemoval implements Runnable {       //Thread to remove disconnected clients from prim server
         @Override
         public void run() {
             while (true) {
@@ -172,14 +189,21 @@ public class Server{
                 }
             }
         }
-    }
+    }*/
 
     private void pingFE() {
         if (mFEConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
-            isPrimary = false;
+
             connectToFE(mFEHostName, mFEport);
         }
     }
+
+    @Override
+    public void receive(ArrayList arrayList) {
+        mGObjects = arrayList;
+    }
+
+
 
     class FEConnectionTries implements Runnable {
         @Override
@@ -198,7 +222,11 @@ public class Server{
         }
     }
 
-    private void removeDisconnected() {
+    public synchronized void removeClient(ClientConnection clientConnection) {
+        mConnectedClients.remove(clientConnection);
+    }
+
+   /* private void removeDisconnected() {
         for (ClientConnection mConnectedClient : mConnectedClients) {
             if (mConnectedClient.getConTries() > 10) {
                 System.out.printf("A client has crashed");
@@ -207,7 +235,7 @@ public class Server{
                 break;
             }
         }
-    }
+    }*/
 
     public boolean addClient(ClientConnection clientConnection) {
         mConnectedClients.add(clientConnection);

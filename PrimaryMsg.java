@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.net.InetAddress;
 
 public class PrimaryMsg implements Serializable {
-	private boolean 	mPrimary;
+	private boolean 	mPrimary = false;
 	private String 		mPrimaryAddress;
 	private int 		mPrimaryPort;
 	

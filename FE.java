@@ -5,6 +5,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Vector;
 
 public class FE {
     private ServerSocket mFESocket;
@@ -13,8 +14,10 @@ public class FE {
     private String mPrimaryAddress;
     private int mPrimaryPort;
     private boolean noPrimary;
+    private FEClientConnection mPrimaryServer;
+    private long mTime;
 
-    private ArrayList<FEClientConnection> mConnectedServers;
+    private Vector<FEClientConnection> mConnectedServers;
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -32,52 +35,52 @@ public class FE {
 
     private FE(int portNumber) {
         try {
-            mConnectedServers = new ArrayList<>();
+            mConnectedServers = new Vector<>();
             noPrimary = true;
             mFESocket = new ServerSocket(portNumber);
-            Thread thread = new Thread(new ThreadRemoval());
-            thread.start();
+            mTime = System.currentTimeMillis();
+            //Thread thread = new Thread(new ThreadRemoval());
+            //thread.start();
         } catch (IOException e) {
             System.err.println("Could not bind Front End-Socket: " + e.getMessage());
         }
     }
 
-    private synchronized void listenForClientHandshake() {
+    public void waitForConnections() {
+        if (mTime + 3000 > System.currentTimeMillis()) {
+            try {
+                Thread.sleep(mTime + 3000 - System.currentTimeMillis());
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void listenForClientHandshake() {
         System.out.println("Waiting for handshake...!");
 
         do {
             FEClientConnection feClientConnection = null;
             try {
                 mClientSocket = mFESocket.accept();
+                System.out.println("New connection");
                 feClientConnection = new FEClientConnection(mClientSocket, this);
-                if (addServer(feClientConnection)) {
-                    Thread feClientThread = new Thread(feClientConnection);
-                    feClientThread.start();
-                    if (noPrimary) {        //If we don't have a primary server yet
 
-                        mPrimaryAddress = feClientConnection.getHostName();
-                        mPrimaryPort = feClientConnection.getPortNumber();
-                        feClientConnection.setPrimary(true);
+                Thread feClientThread = new Thread(feClientConnection);
+                feClientThread.start();
 
-                    }
-                }
+
             } catch (IOException e) {
                 System.err.println("Error while accepting packet: " + e.getMessage());
-            }
-
-            feClientConnection.sendRespondMsg(mPrimaryAddress, mPrimaryPort, noPrimary);
-            if(feClientConnection.isPrimary()){
-                noPrimary = false;
             }
         } while (true);
     }
 
-    private boolean addServer(FEClientConnection feClientConnection) {
-        if (feClientConnection.isServer()) {
-            mConnectedServers.add(feClientConnection);
-            return true;
-        } else {
-            return false;
+    public synchronized void addServer(FEClientConnection feClientConnection, boolean wasPrimary) {
+        mConnectedServers.add(feClientConnection);
+        if (mPrimaryServer == null && wasPrimary) {
+            mPrimaryServer = feClientConnection;
+            noPrimary = false;
         }
     }
 
@@ -85,7 +88,33 @@ public class FE {
         noPrimary = value;
     }
 
-    class ThreadRemoval implements Runnable {
+    public synchronized void removeServer(FEClientConnection feClientConnection) {
+        if (feClientConnection.isPrimary()) {
+            setNoPrimary(true);
+            mConnectedServers.remove(feClientConnection);
+            if(mConnectedServers.size() == 0){
+                mPrimaryServer = null;
+            }
+            else{
+                mPrimaryServer = mConnectedServers.firstElement();
+            }
+
+        }
+        else{
+            mConnectedServers.remove(feClientConnection);
+        }
+
+    }
+
+    public FEClientConnection getPrimaryServer() {
+        if (noPrimary) {        //If we don't have a primary server yet
+            mPrimaryServer = mConnectedServers.firstElement();
+            mPrimaryServer.setPrimary(true);
+        }
+        return mPrimaryServer;
+    }
+
+    /*class ThreadRemoval implements Runnable {
         @Override
         public void run() {
             while (true) {
@@ -112,5 +141,5 @@ public class FE {
                 break;
             }
         }
-    }
+    }*/
 }
