@@ -16,7 +16,7 @@ public class ClientConnection implements Runnable {
     private ThreadSafeObjectStream mOut;
     private ObjectInputStream mIn;
 
-    private volatile int mConTries = 0;
+
     private volatile boolean mDisconnected;
     private PingClass mPingClass;
     private Thread mPingThread;
@@ -44,27 +44,13 @@ public class ClientConnection implements Runnable {
 
     public void sendDisconnectMessage() {
         try {
-            System.out.println("INnan skickat delsmg");
             mOut.writeObject(new DelMsg());
-            System.out.println("Efter skickat delsmg");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public synchronized int getConTries() {
-        return mConTries;
-    }
-
-    public boolean getDisconnect() {
-        return mDisconnected;
-    }
-
-    public void setDisconnect(boolean value) {
-        mDisconnected = value;
-    }
-
-    public synchronized void terminateClient() {
+    public synchronized void terminateClient() {        //Shuts down the client thread, removes the client from the server list and closes the socket.
         mPingClass.shutdown();
         mPingThread.interrupt();
         try {
@@ -72,6 +58,7 @@ public class ClientConnection implements Runnable {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+        System.out.println("A client has crashed!");
         mServer.removeClient(this);
         try {
             mClientSocket.close();
@@ -91,7 +78,7 @@ public class ClientConnection implements Runnable {
         while (isConnected && !mDisconnected) {
             try {
                 mClientSocket.setSoTimeout(5000);
-                Object o = mIn.readObject();        //Receive the message here, forward to server to handle it
+                Object o = mIn.readObject();        //Gives the client 5 seconds to try to receive a ping message, otherwise connection will fail
                 mServer.handlePaintings(o);
 
             } catch (IOException | ClassNotFoundException e) {
@@ -99,7 +86,6 @@ public class ClientConnection implements Runnable {
             }
 
         }
-
         terminateClient();
 
 

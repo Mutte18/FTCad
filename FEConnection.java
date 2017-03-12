@@ -12,17 +12,14 @@ public class FEConnection implements Runnable {
     private Socket mClientSocket = null;
     private String mHostName = null;
 
-    private ThreadSafeObjectStream mOut = null;    //Object skickas, TCP
-    private ObjectInputStream mIn = null;    //Object tas emot, TCP
+    private ThreadSafeObjectStream mOut = null;
+    private ObjectInputStream mIn = null;
 
     private int mServerPort = -1;
     private int mFEPort;
     private String mPrimaryAddress;
     private int mPrimaryPort;
     private boolean isPrimary;
-    private int mConTries;
-    private boolean mDisconnected;
-    private volatile boolean mIsConnected;
     private Server mServer;
 
 
@@ -42,7 +39,7 @@ public class FEConnection implements Runnable {
         } catch (IOException e) {
         }
         sendClientConnectMessage();
-        awaitPrimaryMessage();
+        clientListenForFrontEndMessages();
     }
 
     public void serverHandshake() {
@@ -59,7 +56,7 @@ public class FEConnection implements Runnable {
     public void sendClientConnectMessage() {
         try {
 
-            mOut.writeObject(new ClientConnectionMessage());
+            mOut.writeObject(new ClientConnectionMessage());    //The client doesn't have to send anything to the FE
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -67,29 +64,23 @@ public class FEConnection implements Runnable {
 
     public void sendServerConnectMessage() {
         try {
-            System.out.println(isPrimary + " " + "Before sending serverIsPrimary");
-            mOut.writeObject(new ServerConnectionMessage(mHostName, mServerPort, isPrimary));    //We want to store the address and port of the server in FE
+            mOut.writeObject(new ServerConnectionMessage(mHostName, mServerPort, isPrimary));    //The FE has to know the IP, port and if it was primary
 
         } catch (IOException e) {
-            //e.printStackTrace();
         }
 
     }
 
-    public void awaitPrimaryMessage() {
-
+    public void clientListenForFrontEndMessages() {
         try {
             Object object = mIn.readObject();
 
             if (object instanceof PingMessage) {
 
-            } else if (object instanceof PrimaryMsg) {
-
-                //PrimaryMsg primaryMsg = (PrimaryMsg) object;
+            }
+            else if (object instanceof PrimaryMsg) {
                 mPrimaryAddress = ((PrimaryMsg) object).getPrimaryAddress();
                 mPrimaryPort = ((PrimaryMsg) object).getPrimaryPort();
-                //isPrimary = ((PrimaryMsg) object).getPrimary();
-                System.out.println(mPrimaryAddress + mPrimaryPort  + " Client " + object );
             }
 
         } catch (IOException | ClassNotFoundException e) {
@@ -98,22 +89,26 @@ public class FEConnection implements Runnable {
 
     }
 
-    public void listenToFrontEndMessages() {
+    public void serverListenForFrontEndMessages() {
         while (true) {
             try {
                 Object object = mIn.readObject();
 
                 if (object instanceof PingMessage) {
-                } else if (object instanceof PrimaryMsg) {
+                }
+                else if (object instanceof PrimaryMsg) {
                     PrimaryMsg primaryMsg = (PrimaryMsg) object;
                     mPrimaryAddress = primaryMsg.getPrimaryAddress();
                     mPrimaryPort = primaryMsg.getPrimaryPort();
                     isPrimary = primaryMsg.getPrimary();
                     mServer.setPrimary(isPrimary);
-                    System.out.println("I am Primary" + " " + isPrimary);
+                    if(isPrimary){
+                        System.out.println("I am Primary");
+                    }
+                    else{
+                        System.out.println("I am Backup");
+                    }
                 }
-
-
             } catch (IOException e) {
                 return;
             } catch (ClassNotFoundException e) {
@@ -133,15 +128,7 @@ public class FEConnection implements Runnable {
         return isPrimary;
     }
 
-    public boolean getDisconnect() {
-        return mDisconnected;
-    }
-
-    public void setDisconnect(boolean value) {
-        mDisconnected = value;
-    }
-
-    public void sendGetPrimary(){
+    public void sendGetPrimary(){       //Sends a message to get the new primary
         try {
             mOut.writeObject(new GetPrimaryMessage());
         } catch (IOException e) {
@@ -152,8 +139,7 @@ public class FEConnection implements Runnable {
     @Override
     public void run() {
         while (true) {
-            try {
-
+            try {               //The servers use this thread run method because they need to ping the FE
 
                 serverHandshake();
                 mClientSocket.setSoTimeout(5000);
@@ -161,7 +147,7 @@ public class FEConnection implements Runnable {
                 Thread pingingThread = new Thread(pingClass);
                 pingingThread.start();
 
-                listenToFrontEndMessages();
+                serverListenForFrontEndMessages(); //When this method eventually fails it will continue down to shutdown the connection.
 
                 pingClass.shutdown();
                 pingingThread.interrupt();
@@ -169,7 +155,7 @@ public class FEConnection implements Runnable {
                 mClientSocket.close();
 
             } catch (IOException e) {
-                System.err.println("Connection refused, trying again");
+                System.err.println("Retrying connection to FE");
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e1) {

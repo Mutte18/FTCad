@@ -67,8 +67,6 @@ public class ServerConnection {
             System.out.println("tog emot delsmg");
             mDisconnected = true;
         }
-
-
     }
 
     public synchronized void sendGObject(Object object) {    //Sends the painting to the server
@@ -77,15 +75,6 @@ public class ServerConnection {
         } catch (IOException e) {
             System.err.println("Error creating GObject with ObjectOutputStream: " + e.getMessage());
         }
-    }
-
-
-    public boolean getDisconnect() {
-        return mDisconnected;
-    }
-
-    public void setDisconnect(boolean value) {
-        mDisconnected = value;
     }
 
     private void listenForServerMessages() {

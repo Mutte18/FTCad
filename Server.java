@@ -17,7 +17,6 @@ public class Server implements ListReceiver {
 
     private volatile ArrayList mGObjects = new ArrayList<>();    //Stores all paintings
     private Vector<ClientConnection> mConnectedClients = new Vector<>(); //Stores clientConnections
-    private Vector<ClientConnection> mToDiconnect;
 
     private ServerSocket mServerSocket;
     private Socket mClientSocket;
@@ -72,13 +71,9 @@ public class Server implements ListReceiver {
             if (addClient(clientConnection)) {
                 Thread clientThread = new Thread(clientConnection);
                 clientThread.start();
-
-                /*Thread thread = new Thread(new ThreadRemoval());
-                thread.start();*/
             }
-            System.out.println(mConnectedClients.size());
+            System.out.println("Number of connected clients: " + mConnectedClients.size());
         }
-        System.out.println("Slutade vara primary!");
         disconnectClients();
     }
 
@@ -108,11 +103,10 @@ public class Server implements ListReceiver {
     private void connectToFE(String hostName, int FEport) {
         mFEHostName = hostName;
         mFEport = FEport;
-        System.out.println("Connecting to FrontEnd");
+        System.out.println("Initializing connection to FE");
         mFEConnection = new FEConnection(mFEHostName, mFEport, mServerport, this);
         Thread feThread = new Thread(mFEConnection);
         feThread.start();
-        boolean isConnected = true;
 
         while (true) {
 
@@ -120,7 +114,6 @@ public class Server implements ListReceiver {
                 String mPrimaryAddress = mFEConnection.getPrimaryAddress();
                 int mPrimaryPort = mFEConnection.getPrimaryPort();
                 isPrimary = mFEConnection.getPrimary();
-                System.out.println("Am I primary? " + mFEConnection.getPrimary());
 
                 if (isPrimary) {        //Acts like a server incase it is primary
                     listenForClientMessages();
@@ -135,8 +128,6 @@ public class Server implements ListReceiver {
             }
             try {
                 Thread.sleep(500);
-
-
             } catch (InterruptedException e) {
                 e.printStackTrace();
 
@@ -145,19 +136,16 @@ public class Server implements ListReceiver {
     }
 
     public void setPrimary(boolean value){
-        if(isPrimary && !value){
+        if(isPrimary && !value){            //If the
         }
         isPrimary = value;
     }
 
     private void disconnectClients() {       //Disconnect all clients when FE goes down
-        //mToDiconnect = mConnectedClients;
         if (mConnectedClients.size() > 0) {
             for (ClientConnection mConnectedClient : mConnectedClients) {
                 mConnectedClient.sendDisconnectMessage();
                 mConnectedClient.terminateClient();
-                //mConnectedClient.setDisconnect(true);
-                //mConnectedClients.remove(mConnectedClient);
             }
             mConnectedClients.clear();
             System.out.println("Clear kördes");
@@ -166,37 +154,6 @@ public class Server implements ListReceiver {
 
     }
 
-    /*private void listenForServerMessages() {
-        while (!isPrimary) {
-            mGObjects = mServerConnection.receivePaintings();
-            if (mServerConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
-                System.out.println("bServer gick fröbi");
-                connectToFE(mFEHostName, mFEport);
-                break;
-            }
-        }
-    }*/
-
-    /*class ThreadRemoval implements Runnable {       //Thread to remove disconnected clients from prim server
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    Thread.sleep(5000);
-                    removeDisconnected();
-                } catch (InterruptedException e) {
-                    System.err.println("Failed to sleep thread: " + e.getMessage());
-                }
-            }
-        }
-    }*/
-
-    private void pingFE() {
-        if (mFEConnection.getDisconnect()) {        //If the primary server is down, try to reconnect to FE to become primary
-
-            connectToFE(mFEHostName, mFEport);
-        }
-    }
 
     @Override
     public void receive(ArrayList arrayList) {
@@ -204,38 +161,9 @@ public class Server implements ListReceiver {
     }
 
 
-
-    class FEConnectionTries implements Runnable {
-        @Override
-        public void run() {
-            while (true) {
-
-                pingFE();
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-
-            }
-        }
-    }
-
     public synchronized void removeClient(ClientConnection clientConnection) {
         mConnectedClients.remove(clientConnection);
     }
-
-   /* private void removeDisconnected() {
-        for (ClientConnection mConnectedClient : mConnectedClients) {
-            if (mConnectedClient.getConTries() > 10) {
-                System.out.printf("A client has crashed");
-                mConnectedClients.remove(mConnectedClient);
-                System.out.println(mConnectedClients.size());
-                break;
-            }
-        }
-    }*/
 
     public boolean addClient(ClientConnection clientConnection) {
         mConnectedClients.add(clientConnection);

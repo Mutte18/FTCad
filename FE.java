@@ -11,8 +11,6 @@ public class FE {
     private ServerSocket mFESocket;
     private Socket mClientSocket;
 
-    private String mPrimaryAddress;
-    private int mPrimaryPort;
     private boolean noPrimary;
     private FEClientConnection mPrimaryServer;
     private long mTime;
@@ -39,15 +37,13 @@ public class FE {
             noPrimary = true;
             mFESocket = new ServerSocket(portNumber);
             mTime = System.currentTimeMillis();
-            //Thread thread = new Thread(new ThreadRemoval());
-            //thread.start();
         } catch (IOException e) {
             System.err.println("Could not bind Front End-Socket: " + e.getMessage());
         }
     }
 
     public void waitForConnections() {
-        if (mTime + 3000 > System.currentTimeMillis()) {
+        if (mTime + 3000 > System.currentTimeMillis()) {        //Awaits all servers to connect before choosing the primary
             try {
                 Thread.sleep(mTime + 3000 - System.currentTimeMillis());
             } catch (InterruptedException e) {
@@ -56,19 +52,17 @@ public class FE {
         }
     }
 
-    private void listenForClientHandshake() {
+    private void listenForClientHandshake() {               //Client in this case is both "normal" clients and servers
         System.out.println("Waiting for handshake...!");
 
         do {
             FEClientConnection feClientConnection = null;
             try {
                 mClientSocket = mFESocket.accept();
-                System.out.println("New connection");
                 feClientConnection = new FEClientConnection(mClientSocket, this);
 
                 Thread feClientThread = new Thread(feClientConnection);
                 feClientThread.start();
-
 
             } catch (IOException e) {
                 System.err.println("Error while accepting packet: " + e.getMessage());
@@ -78,7 +72,7 @@ public class FE {
 
     public synchronized void addServer(FEClientConnection feClientConnection, boolean wasPrimary) {
         mConnectedServers.add(feClientConnection);
-        if (mPrimaryServer == null && wasPrimary) {
+        if (mPrimaryServer == null && wasPrimary) {     //If there is no primary server, the current connection will be the new primary
             mPrimaryServer = feClientConnection;
             noPrimary = false;
         }
@@ -89,8 +83,9 @@ public class FE {
     }
 
     public synchronized void removeServer(FEClientConnection feClientConnection) {
-        if (feClientConnection.isPrimary()) {
+        if (feClientConnection.isPrimary()) {      //If primary crashes, chooses the next one in the list
             setNoPrimary(true);
+            System.out.println("Primary has crashed!");
             mConnectedServers.remove(feClientConnection);
             if(mConnectedServers.size() == 0){
                 mPrimaryServer = null;
@@ -98,7 +93,6 @@ public class FE {
             else{
                 mPrimaryServer = mConnectedServers.firstElement();
             }
-
         }
         else{
             mConnectedServers.remove(feClientConnection);
@@ -113,33 +107,4 @@ public class FE {
         }
         return mPrimaryServer;
     }
-
-    /*class ThreadRemoval implements Runnable {
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    System.out.println(noPrimary);
-                    Thread.sleep(3000);
-                    removeDisconnected();
-                } catch (InterruptedException e) {
-                    System.err.println("Failed to sleep thread: " + e.getMessage());
-                }
-            }
-        }
-    }
-    private void removeDisconnected() {
-
-        for (FEClientConnection mConnectedServer : mConnectedServers) {
-            if (mConnectedServer.getConTries() > 10) {
-                System.out.printf("A server has crashed");
-                if (mConnectedServer.isPrimary()) {
-                    System.out.println("PRIMARY DIED!!!!");
-                    setNoPrimary(true);
-                }
-                mConnectedServers.remove(mConnectedServer);
-                break;
-            }
-        }
-    }*/
 }
