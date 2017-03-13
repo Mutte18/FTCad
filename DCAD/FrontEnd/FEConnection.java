@@ -148,7 +148,6 @@ public class FEConnection implements Runnable {
     public void run() {
         while (true) {
             try {               //The servers use this thread run method because they need to ping the FE
-
                 serverHandshake();
                 mClientSocket.setSoTimeout(5000);
                 PingClass pingClass = new PingClass(mOut);

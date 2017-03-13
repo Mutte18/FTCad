@@ -20,7 +20,6 @@ public class FEClientConnection implements Runnable {
 
     private String mHostname;
     private int mPortNumber;
-    private boolean isPrimary;
     private FE mFE;
     private boolean isConnected = true;
 
@@ -65,13 +64,6 @@ public class FEClientConnection implements Runnable {
         return mPortNumber;
     }
 
-    /*public void setPrimary(boolean value) {
-        isPrimary = value;
-    }
-
-    public boolean isPrimary() {
-        return isPrimary;
-    }*/
 
     public synchronized void openConnections() {
         try {

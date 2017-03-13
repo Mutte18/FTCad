@@ -150,7 +150,6 @@ public class Server implements ListReceiver {
                 mConnectedClient.terminateClient();
             }
             mConnectedClients.clear();
-            System.out.println("Clear kördes");
         }
         System.out.println(mConnectedClients.size());
 

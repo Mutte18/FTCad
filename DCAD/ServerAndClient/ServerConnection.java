@@ -23,7 +23,6 @@ public class ServerConnection {
 
     private volatile boolean mIsConnected;
     private int mServerPort = -1;
-    private int mConTries;
     private boolean mDisconnected;
     private ListReceiver mListReceiver;
 
@@ -36,7 +35,6 @@ public class ServerConnection {
     }
 
     public boolean handshake() {
-        // Kopplar mOut till klientens socket
         try {
             mOut = new ThreadSafeObjectStream(new ObjectOutputStream(mClientSocket.getOutputStream()));
             mIn = new ObjectInputStream(mClientSocket.getInputStream());
@@ -61,7 +59,6 @@ public class ServerConnection {
 
             } catch (ClassNotFoundException | IOException e) {
                 mIsConnected = false;
-                //System.err.println("Error reading Vector using ObjectInputStream: " + e.getMessage());
             }
         }
         return mGObjects;
@@ -71,7 +68,6 @@ public class ServerConnection {
         if (object instanceof ArrayList) {
             mGObjects = (ArrayList) object;
         } else if (object instanceof DelMsg) {
-            System.out.println("tog emot delsmg");
             mDisconnected = true;
         }
     }

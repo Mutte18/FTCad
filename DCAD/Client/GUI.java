@@ -35,22 +35,20 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
     JButton greenButton = new JButton("Green");
     JButton whiteButton = new JButton("White");
     JButton pinkButton = new JButton("Pink");
-    // Den startar med det som st�r nedan
     private GObject template = new GObject(Shape.OVAL, Color.RED, 363, 65, 25, 25);
     private GObject current = null;
-    // Denna lista sparar de ritade objekten, s� de inte f�rsvinner n�r ett nytt
-    // objekt ritas
+
     private volatile ArrayList<GObject> mObjectList;
     private ServerConnection mServerConnection;
 
     public GUI(int xpos, int ypos) {
-        setSize(xpos, ypos); // S�tter storleken p� rutan
-        setTitle("FTCAD"); // S�tter namn p� f�nstret
+        setSize(xpos, ypos);
+        setTitle("FTCAD");
 
-        Container pane = getContentPane(); // Panel f�r knappar
-        pane.setBackground(Color.BLACK); // F�rg p� panel
+        Container pane = getContentPane();
+        pane.setBackground(Color.BLACK);
 
-        pane.add(ovalButton); // L�gger till knappar
+        pane.add(ovalButton);
         pane.add(rectangleButton);
         pane.add(lineButton);
         pane.add(filledOvalButton);
@@ -62,8 +60,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
         pane.add(pinkButton);
         mObjectList = new ArrayList<GObject>();
 
-        pane.setLayout(new FlowLayout()); // S�tter Layout f�r knapparna i
-        // panelen
+        pane.setLayout(new FlowLayout());
+
         setVisible(true);
     }
 
@@ -85,7 +83,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
 
     }
 
-    // WindowListener methods
+
     public void windowActivated(WindowEvent e) {
         repaint();
     }
@@ -111,7 +109,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
         repaint();
     }
 
-    // MouseListener methods
+
     public void mouseEntered(MouseEvent e) {
     }
 
@@ -145,7 +143,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
         repaint();
     }
 
-    // MouseMotionListener methods
+
     public void mouseMoved(MouseEvent e) {
     }
 
@@ -156,7 +154,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
         repaint();
     }
 
-    // ActionListener methods
+
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == ovalButton) {
             template.setShape(Shape.OVAL);
@@ -200,9 +198,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener, Mouse
     }
 
     public void paint(Graphics g) {
-        /*super.paint(g);
-        // The superclass (JFrame) paint function draws the GUI components.
-        update(g);*/
             BufferedImage bf = new BufferedImage( this.getWidth(),this.getHeight(), BufferedImage.TYPE_INT_RGB);
             super.paint(bf.getGraphics()); // The superclass (JFrame) paint function draws the GUI components.
             update(bf.getGraphics());

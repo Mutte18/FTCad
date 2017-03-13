@@ -17,7 +17,7 @@ public class FE {
 
     public static void main(String[] args) {
         if (args.length < 1) {
-            System.err.println("Usage: java Server portnumber");
+            System.err.println("Usage: java FrontEnd portnumber");
             System.exit(-1);
         }
         try {
