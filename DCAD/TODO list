@@ -1,0 +1,22 @@
+Det funkar att starta FE, första servern blir primär. Andra servrar som connectar till FE får primärservers IP och port.
+De connectar sedan som en vanlig client till primärservern. En klient som öppnar GUI fönster kan också connecta till primärservern.
+
+Ifall primärservern går ner kommer FE att upptäcka det genom att den inte får fram pings, den kommer då att sätta att nästa server som connectar blir primär.
+
+Klienterna och backupservrarna upptäcker att primärservern dör genom att de pingar den. När de inte når fram försöker de göra en ny koppling till FE och få
+den nya serverns info.
+
+PROBLEM MED KLIENT:
+När den försöker connecta till den nya servern kommer den att starta ett nytt ritfönster, detta måste lösas.
+
+PROBLEM MED FE:
+Ifall en primärserver som har backupservrar och klienter kopplade till sig verkar FE balla ur och skita i att ange en ny server till att bli primär. KOLLA ÖVER
+Detta leder till att FE:n aldrig ger en ny primärserver.
+
+Oskar föreslog connectionHandler på något sätt
+
+Vi bör även försöka lägga till fler packages eftersom att det kan vara svårt att veta vilka klasser som hör till vad just nu.
+
+TODO:
+1. Fixa att FE ger primärserver som den ska
+2. Fixa så att klient inte skapar flera klientfönster
