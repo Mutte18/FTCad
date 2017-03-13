@@ -1,6 +1,6 @@
 package DCAD.Server;
 
-import DCAD.*;
+import DCAD.Client.GObject;
 import DCAD.FrontEnd.FEConnection;
 import DCAD.General.ListReceiver;
 import DCAD.General.PingMessage;

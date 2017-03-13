@@ -1,7 +1,6 @@
 package DCAD.Client;
 
 import DCAD.FrontEnd.FEConnection;
-import DCAD.GUI;
 import DCAD.General.ListReceiver;
 import DCAD.ServerAndClient.ServerConnection;
 

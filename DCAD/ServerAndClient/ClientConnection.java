@@ -1,7 +1,7 @@
 package DCAD.ServerAndClient;
 
 import DCAD.Server.DelMsg;
-import DCAD.GObject;
+import DCAD.Client.GObject;
 import DCAD.General.PingClass;
 import DCAD.Server.Server;
 import DCAD.General.ThreadSafeObjectStream;
